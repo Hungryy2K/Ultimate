@@ -112,3 +112,20 @@ function infoboxRender ()
 	local x, y = guiGetScreenSize()
 	dxDrawText(infoboxText,0,5,x,160,tocolor(infoboxR,infoboxG,infoboxB,255),1.4,"default-bold","center","center",false,false,true)
 end
+
+-- Zentrales Utility für farbige Ingame-Meldungen
+-- Typen: "error", "success", "warning", "info"
+function showInfoBox(player, text, type)
+    local r, g, b = 255, 255, 255
+    if type == "error" then r, g, b = 200, 0, 0
+    elseif type == "success" then r, g, b = 0, 200, 0
+    elseif type == "warning" then r, g, b = 255, 200, 0
+    elseif type == "info" then r, g, b = 0, 128, 255 end
+    outputChatBox(text, player, r, g, b)
+end
+
+-- Beispiel für die Nutzung:
+-- showInfoBox(player, "Dies ist eine Fehlermeldung!", "error")
+-- showInfoBox(player, "Aktion erfolgreich!", "success")
+-- showInfoBox(player, "Achtung: Dies ist eine Warnung!", "warning")
+-- showInfoBox(player, "Info: Willkommen!", "info")

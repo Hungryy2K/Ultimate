@@ -229,12 +229,16 @@ addEventHandler ( "ShowRegisterGui", getRootElement(), showRegisterGui_func )
 function GUI_DisableRegisterGui()
 
 	cancelCameraIntro ()
-	destroyElement ( gWindow["register"] )
+	if gWindow["register"] and isElement(gWindow["register"]) then
+		destroyElement(gWindow["register"])
+	end
 	showCursor ( false )
 	setElementClicked ( false )
 	removeEventHandler ( "onClientRender", getRootElement(), renderRegisterBrowser )
 	removeEventHandler ( "onClientRender", root, setBrowserVolumeForRegisterLow )
-	destroyElement ( loginBrowser )
+	if isElement(loginBrowser) then
+		destroyElement ( loginBrowser )
+	end
 	showChat ( true )
 	setElementHunger ( 60 )
 end

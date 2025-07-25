@@ -1,4 +1,9 @@
-﻿createBlip ( -2442.6064453125, 753.44964599609, 34.136966705322, 36, 2, 255, 0, 0, 255, 0, 200 )
+﻿-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local adminLogger = Logger:new("Admin")
+local securityLogger = Logger:new("Security")
+local discordLogger = Logger:new("Discord")
+local shopLogger = Logger:new("shoplog")
+createBlip ( -2442.6064453125, 753.44964599609, 34.136966705322, 36, 2, 255, 0, 0, 255, 0, 200 )
 createBlip ( 2194.9331054688, 1991.1153564453, 13.296875, 36, 2, 255, 0, 0, 255, 0, 200 )
 Marker24_7 = createMarker ( -2442.6064453125, 753.44964599609, 34.136966705322, "cylinder", 1.2, 200, 0, 0, 200, getRootElement() )
 Marker24_7_LV = createMarker( 2194.9331054688, 1991.1153564453, 11.2, "cylinder",1.2, 200, 0, 0, 200, getRootElement() )
@@ -194,6 +199,32 @@ function itemBuy_func ( player, item, cam, nvslot )
 end
 addEvent ( "itemBuy", true )
 addEventHandler ( "itemBuy", getRootElement(), itemBuy_func )
+
+function shopBuyItem(player, item, menge, preis)
+    -- Input-Validierung
+    if not item or type(item) ~= "string" or #item > 32 then
+        securityLogger:error("[EXPLOIT] Ungültiges Item beim Shopkauf: "..tostring(item), player)
+        return
+    end
+    if not menge or type(menge) ~= "number" or menge < 1 or menge > 100 then
+        securityLogger:error("[EXPLOIT] Ungültige Menge beim Shopkauf: "..tostring(menge), player)
+        return
+    end
+    if not preis or type(preis) ~= "number" or preis < 1 or preis > 100000 then
+        securityLogger:error("[EXPLOIT] Ungültiger Preis beim Shopkauf: "..tostring(preis), player)
+        return
+    end
+    -- Cooldown
+    if getTickCount() - (vioGetElementData(player, "lastShopBuy") or 0) < 5000 then
+        securityLogger:error("[EXPLOIT] Spieler "..getPlayerName(player).." versucht zu schnell im Shop zu kaufen.", player)
+        return
+    end
+    vioSetElementData(player, "lastShopBuy", getTickCount())
+    -- Durchführung
+    -- ... Itemkauf-Logik ...
+    adminLogger:info(getPlayerName(player).." hat im Shop "..menge.."x "..item.." für "..preis.."$ gekauft.")
+    shopLogger:discord("SHOP: "..getPlayerName(player).." hat "..menge.."x "..item.." für "..preis.."$ gekauft.", getPlayerSerial(player), getPlayerIP(player))
+end
 
 function changeTarif ( val )
 

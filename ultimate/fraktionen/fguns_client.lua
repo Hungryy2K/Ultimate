@@ -1,14 +1,57 @@
-﻿local GUIEditor = {
-    button = {},
-    window = {},
-    label = {}
+﻿-- Mehrspielerfähiges Fraktionswaffen-GUI: Pro Spieler werden alle relevanten Daten in fgunsData[localPlayer] gespeichert
+
+-- GUI-Theme (direkt eingebunden, statt require)
+local guiTheme = {
+    windowAlpha = 0.92,
+    mainColor = {0, 120, 255},
+    buttonColor = "FF0078FF",
+    buttonHover = "FF00FF00",
+    labelColor = {255,255,255},
+    fontHeader = "sa-header",
+    fontLabel = "default-bold-small",
+    closeButtonColor = "FFFF4444",
+    closeButtonHover = "FFFF8888",
 }
 
+function createStyledWindow(x, y, w, h, title, parent)
+    local wnd = guiCreateWindow(x, y, w, h, title, parent)
+    if not wnd then outputDebugString("[FGuns] Fenster konnte nicht erstellt werden!") end
+    guiSetAlpha(wnd, guiTheme.windowAlpha)
+    guiWindowSetSizable(wnd, false)
+    return wnd
+end
 
---[[ 
-	1 = Nahkampf | 2 = Deagle | 3 = Mp5 | 4 = Spezialwaffe | 5 = Gewehr |
-	6 = AK47 | 7 = M4 | 8 = Sniper | 9 = Raketenwerfer |
-  ]]
+function createStyledButton(x, y, w, h, text, parent, isClose)
+    local btn = guiCreateButton(x, y, w, h, text, parent)
+    if not btn then outputDebugString("[FGuns] Button konnte nicht erstellt werden!"..tostring(text)) end
+    if isElement(btn) then
+        if isClose then
+            guiSetProperty(btn, "NormalTextColour", guiTheme.closeButtonColor)
+            guiSetProperty(btn, "HoverTextColour", guiTheme.closeButtonHover)
+        else
+            guiSetProperty(btn, "NormalTextColour", guiTheme.buttonColor)
+            guiSetProperty(btn, "HoverTextColour", guiTheme.buttonHover)
+        end
+        guiSetFont(btn, guiTheme.fontLabel)
+    end
+    return btn
+end
+
+function createStyledLabel(x, y, w, h, text, parent, isHeader)
+    local lbl = guiCreateLabel(x, y, w, h, text, parent)
+    if not lbl then outputDebugString("[FGuns] Label konnte nicht erstellt werden!"..tostring(text)) end
+    if isElement(lbl) then
+        if isHeader then
+            guiSetFont(lbl, guiTheme.fontHeader)
+        else
+            guiSetFont(lbl, guiTheme.fontLabel)
+        end
+        guiLabelSetColor(lbl, unpack(guiTheme.labelColor))
+    end
+    return lbl
+end
+
+local fgunsData = {}
 
 local Moneycost = {
 	[1] = 100,
@@ -34,147 +77,80 @@ local Matscost = {
 	[9] = 200
 }
 
-local buttonID = {}
-
-function createFgunsGui (therank, thefrac)
-	showCursor (true)
-	setElementClicked ( true )
-    GUIEditor.window[1] = guiCreateWindow(0.26, 0.07, 0.50, 0.80, "Fraktionslager", true)
-    guiSetAlpha(GUIEditor.window[1], 0.90)
-	guiBringToFront (GUIEditor.window[1])
-
-	-- Yakuza --
-	if thefrac == 3 then
-        GUIEditor.button[1] = guiCreateButton(0.03, 0.09, 0.25, 0.11, "Baseball", true, GUIEditor.window[1])
-        guiSetProperty(GUIEditor.button[1], "NormalTextColour", "E3FFFFFF")
-		if therank >= 2 then
-			GUIEditor.button[4] = guiCreateButton(0.03, 0.34, 0.25, 0.11, "Katana", true, GUIEditor.window[1])
-			guiSetProperty(GUIEditor.button[4], "NormalTextColour", "E3FFFFFF")
-			GUIEditor.label[7] = guiCreateLabel(0.03, 0.48, 0.25, 0.04, Moneycost[4].."$", true, GUIEditor.window[1])
-			guiLabelSetHorizontalAlign(GUIEditor.label[7], "center", false)
-			GUIEditor.label[8] = guiCreateLabel(0.03, 0.52, 0.25, 0.04, Matscost[4].." Mats", true, GUIEditor.window[1])
-			guiLabelSetHorizontalAlign(GUIEditor.label[8], "center", false)
-		end
-	-- Mafia --
-	elseif thefrac == 2 then
-        GUIEditor.button[1] = guiCreateButton(0.03, 0.09, 0.25, 0.11, "Messer", true, GUIEditor.window[1])
-        guiSetProperty(GUIEditor.button[1], "NormalTextColour", "E3FFFFFF")
-		if therank >= 2 then
-			GUIEditor.button[4] = guiCreateButton(0.03, 0.34, 0.25, 0.11, "Lupara", true, GUIEditor.window[1])
-			guiSetProperty(GUIEditor.button[4], "NormalTextColour", "E3FFFFFF")
-			GUIEditor.label[7] = guiCreateLabel(0.03, 0.48, 0.25, 0.04, Moneycost[4].."$", true, GUIEditor.window[1])
-			guiLabelSetHorizontalAlign(GUIEditor.label[7], "center", false)
-			GUIEditor.label[8] = guiCreateLabel(0.03, 0.52, 0.25, 0.04, Matscost[4].." Mats", true, GUIEditor.window[1])
-			guiLabelSetHorizontalAlign(GUIEditor.label[8], "center", false)
-		end
-	else
-        GUIEditor.button[1] = guiCreateButton(0.03, 0.09, 0.25, 0.11, "Queue", true, GUIEditor.window[1])
-        guiSetProperty(GUIEditor.button[1], "NormalTextColour", "E3FFFFFF")
-		if therank >= 2 then
-			GUIEditor.button[4] = guiCreateButton(0.03, 0.34, 0.25, 0.111, "Molotov", true, GUIEditor.window[1])
-			guiSetProperty(GUIEditor.button[4], "NormalTextColour", "E3FFFFFF")
-			GUIEditor.label[7] = guiCreateLabel(0.03, 0.48, 0.25, 0.04, Moneycost[4].."$", true, GUIEditor.window[1])
-			guiLabelSetHorizontalAlign(GUIEditor.label[7], "center", false)
-			GUIEditor.label[8] = guiCreateLabel(0.03, 0.52, 0.25, 0.04, Matscost[4].." Mats", true, GUIEditor.window[1])
-			guiLabelSetHorizontalAlign(GUIEditor.label[8], "center", false)
-		end
-	end
-	GUIEditor.label[1] = guiCreateLabel(0.03, 0.22, 0.25, 0.04, Moneycost[1].."$", true, GUIEditor.window[1])
-	guiLabelSetHorizontalAlign(GUIEditor.label[1], "center", false)
-    GUIEditor.label[2] = guiCreateLabel(0.03, 0.26, 0.25, 0.04, Matscost[1].." Mats", true, GUIEditor.window[1])
-    guiLabelSetHorizontalAlign(GUIEditor.label[2], "center", false)
-    
-	GUIEditor.button[2] = guiCreateButton(0.39, 0.09, 0.25, 0.11, "Deagle", true, GUIEditor.window[1])
-    guiSetProperty(GUIEditor.button[2], "NormalTextColour", "E3FFFFFF")
-	GUIEditor.label[3] = guiCreateLabel(0.39, 0.22, 0.25, 0.04, Moneycost[2].."$", true, GUIEditor.window[1])
-    guiLabelSetHorizontalAlign(GUIEditor.label[3], "center", false)
-	GUIEditor.label[4] = guiCreateLabel(0.39, 0.26, 0.25, 0.04, Matscost[2].." Mats", true, GUIEditor.window[1])
-    guiLabelSetHorizontalAlign(GUIEditor.label[4], "center", false)
-	
-	if therank >= 1 then
-		GUIEditor.button[3] = guiCreateButton(0.73, 0.09, 0.25, 0.11, "Mp5", true, GUIEditor.window[1])
-		guiSetProperty(GUIEditor.button[3], "NormalTextColour", "E3FFFFFF")
-		GUIEditor.label[5] = guiCreateLabel(0.73, 0.22, 0.25, 0.04, Moneycost[3].."$", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[5], "center", false)
-		GUIEditor.label[6] = guiCreateLabel(0.73, 0.26, 0.25, 0.04, Matscost[3].." Mats", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[6], "center", false)
-	end
-	if therank >= 2 then
-		GUIEditor.button[5] = guiCreateButton(0.39, 0.34, 0.25, 0.11, "Gewehr", true, GUIEditor.window[1])
-		guiSetProperty(GUIEditor.button[5], "NormalTextColour", "E3FFFFFF")
-		GUIEditor.label[9] = guiCreateLabel(0.39, 0.48, 0.24, 0.04, Moneycost[5].."$", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[9], "center", false)
-		GUIEditor.label[10] = guiCreateLabel(0.39, 0.52, 0.25, 0.04, Matscost[5].." Mats", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[10], "center", false)
-	end
-	if therank >= 3 then
-		GUIEditor.button[7] = guiCreateButton(0.03, 0.61, 0.25, 0.11, "M4", true, GUIEditor.window[1])
-		guiSetProperty(GUIEditor.button[7], "NormalTextColour", "E3FFFFFF")
-		GUIEditor.label[13] = guiCreateLabel(0.03, 0.73, 0.25, 0.04, Moneycost[7].."$", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[13], "center", false)
-		GUIEditor.label[14] = guiCreateLabel(0.03, 0.77, 0.25, 0.04, Matscost[7].." Mats", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[14], "center", false)
-		
-		GUIEditor.button[6] = guiCreateButton(0.73, 0.34, 0.25, 0.11, "AK47", true, GUIEditor.window[1])
-		guiSetProperty(GUIEditor.button[6], "NormalTextColour", "E3FFFFFF")
-		GUIEditor.label[11] = guiCreateLabel(0.73, 0.48, 0.25, 0.04, Moneycost[6].."$".."$", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[11], "center", false)
-		GUIEditor.label[12] = guiCreateLabel(0.73, 0.52, 0.25, 0.04, Matscost[6].." Mats", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[12], "center", false)
-	end
-	if therank >= 4 then
-		GUIEditor.button[8] = guiCreateButton(0.39, 0.61, 0.25, 0.11, "Sniper", true, GUIEditor.window[1])
-		guiSetProperty(GUIEditor.button[8], "NormalTextColour", "E3FFFFFF")
-		GUIEditor.label[15] = guiCreateLabel(0.39, 0.73, 0.25, 0.04, Moneycost[8].."$", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[15], "center", false)
-		GUIEditor.label[16] = guiCreateLabel(0.39, 0.77, 0.25, 0.04, Matscost[8].." Mats", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[16], "center", false)
-	end
-	if therank >= 5 then
-		GUIEditor.button[9] = guiCreateButton(0.73, 0.61, 0.25, 0.11, "Raketenwerfer", true, GUIEditor.window[1])
-		guiSetProperty(GUIEditor.button[9], "NormalTextColour", "E3FFFFFF")
-		GUIEditor.label[17] = guiCreateLabel(0.73, 0.73, 0.25, 0.04, Moneycost[9].."$", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[17], "center", false)
-		GUIEditor.label[18] = guiCreateLabel(0.73, 0.78, 0.25, 0.04, Matscost[9].." Mats", true, GUIEditor.window[1])
-		guiLabelSetHorizontalAlign(GUIEditor.label[18], "center", false)	
-	end
-	GUIEditor.button[10] = guiCreateButton(0.29, 0.86, 0.43, 0.09, "Schließen", true, GUIEditor.window[1])
-    guiSetProperty(GUIEditor.button[10], "NormalTextColour", "E3FFFFFF")
-	
-	for index, button in pairs ( GUIEditor.button ) do
-		if index ~= 10 then
-			addEventHandler ("onClientGUIClick", GUIEditor.button[index], sendTheWeaponFromFGunsToServer, false)
-			buttonID[GUIEditor.button[index]] = index
-		end
-	end
-	addEventHandler ("onClientGUIClick", GUIEditor.button[10], closeFgunsGui, false)
+function createFgunsGui(therank, thefrac)
+    local player = localPlayer
+    fgunsData[player] = fgunsData[player] or {GUIEditor = {button = {}, window = {}, label = {}, image = {}}, buttonID = {}}
+    local data = fgunsData[player]
+    local sx, sy = guiGetScreenSize()
+    -- Modernes zentriertes Fenster
+    data.GUIEditor.window[1] = createStyledWindow(sx*0.35, sy*0.2, sx*0.3, sy*0.5, "Fraktionslager")
+    if not isElement(data.GUIEditor.window[1]) then outputDebugString("[FGuns] Fenster konnte nicht erstellt werden!") return end
+    guiBringToFront(data.GUIEditor.window[1])
+    showCursor(true)
+    setElementClicked(true)
+    -- Fraktionslogo oben links (optional, Beispielbild)
+    data.GUIEditor.image[1] = guiCreateStaticImage(0.02, 0.06, 0.12, 0.18, "images/faction_logo.png", true, data.GUIEditor.window[1])
+    if not isElement(data.GUIEditor.image[1]) then outputDebugString("[FGuns] Image konnte nicht erstellt werden!") end
+    -- Waffen-Buttons und Labels
+    local yStart = 0.25
+    local yStep = 0.13
+    local xBtn = 0.18
+    local wBtn, hBtn = 0.6, 0.1
+    local btnIdx = 1
+    local labelIdx = 1
+    local weaponNames = { [1]="Nahkampf", [2]="Deagle", [3]="Mp5", [4]="Spezial", [5]="Gewehr", [6]="AK47", [7]="M4", [8]="Sniper", [9]="Raketenwerfer" }
+    for i=1,math.min(9,therank+4) do
+        local btnY = yStart + (btnIdx-1)*yStep
+        data.GUIEditor.button[i] = createStyledButton(xBtn, btnY, wBtn, hBtn, weaponNames[i] or ("Waffe "..i), data.GUIEditor.window[1])
+        if isElement(data.GUIEditor.button[i]) then
+            data.buttonID[data.GUIEditor.button[i]] = i
+            addEventHandler("onClientGUIClick", data.GUIEditor.button[i], function(...) sendTheWeaponFromFGunsToServer(player, ...) end, false)
+        end
+        -- Preis- und Mats-Label unter dem Button
+        data.GUIEditor.label[labelIdx] = createStyledLabel(xBtn, btnY+hBtn+0.01, wBtn/2, 0.05, Moneycost[i].."$", data.GUIEditor.window[1])
+        if isElement(data.GUIEditor.label[labelIdx]) then guiLabelSetColor(data.GUIEditor.label[labelIdx], 0, 200, 0) end
+        labelIdx = labelIdx + 1
+        data.GUIEditor.label[labelIdx] = createStyledLabel(xBtn+wBtn/2, btnY+hBtn+0.01, wBtn/2, 0.05, Matscost[i].." Mats", data.GUIEditor.window[1])
+        if isElement(data.GUIEditor.label[labelIdx]) then guiLabelSetColor(data.GUIEditor.label[labelIdx], 200, 200, 0) end
+        labelIdx = labelIdx + 1
+        btnIdx = btnIdx + 1
+    end
+    -- Schließen-Button unten rechts
+    data.GUIEditor.button[99] = createStyledButton(0.7, 0.88, 0.25, 0.09, "Schließen", data.GUIEditor.window[1], true)
+    if isElement(data.GUIEditor.button[99]) then
+        addEventHandler("onClientGUIClick", data.GUIEditor.button[99], function(...) closeFgunsGui(player, ...) end, false)
+    end
 end
-addEvent ( "startFgunsGui", true )
-addEventHandler( "startFgunsGui", getRootElement(), createFgunsGui )
+addEvent("startFgunsGui", true)
+addEventHandler("startFgunsGui", getRootElement(), createFgunsGui)
 
-
-function sendTheWeaponFromFGunsToServer ( button, state )
-	if button == "left" and state == "up" then
-		triggerServerEvent ( "giveFgunsWeapon", lp, guiGetText(source), Moneycost[buttonID[source]], Matscost[buttonID[source]] )
-	end
+function sendTheWeaponFromFGunsToServer(player, button, state)
+    local data = fgunsData[player]
+    if button == "left" and state == "up" then
+        triggerServerEvent("giveFgunsWeapon", lp, guiGetText(source), Moneycost[data.buttonID[source]], Matscost[data.buttonID[source]])
+    end
 end
 
-
-function closeFgunsGui ( button, state )
-	if button == "left" and state == "up" then
-		showCursor (false)
-		setElementClicked ( false )
-		for i, button in pairs (GUIEditor.button) do
-			destroyElement (button)
-			GUIEditor.button[i] = nil
-		end
-		for i, label in pairs (GUIEditor.label) do
-			destroyElement (label)
-			GUIEditor.label[i] = nil
-		end
-		destroyElement (GUIEditor.window[1])
-		GUIEditor.window[1] = nil
-	end
+function closeFgunsGui(player, button, state)
+    local data = fgunsData[player]
+    if button == "left" and state == "up" then
+        showCursor(false)
+        setElementClicked(false)
+        for i, button in pairs(data.GUIEditor.button) do
+            if isElement(button) then destroyElement(button) end
+            data.GUIEditor.button[i] = nil
+        end
+        for i, label in pairs(data.GUIEditor.label) do
+            if isElement(label) then destroyElement(label) end
+            data.GUIEditor.label[i] = nil
+        end
+        for i, img in pairs(data.GUIEditor.image) do
+            if isElement(img) then destroyElement(img) end
+            data.GUIEditor.image[i] = nil
+        end
+        if isElement(data.GUIEditor.window[1]) then destroyElement(data.GUIEditor.window[1]) end
+        data.GUIEditor.window[1] = nil
+    end
 end
 				
 				

@@ -7,12 +7,12 @@ addEvent ( "joinPokerTable", true )
 addEventHandler ( "joinPokerTable", getRootElement(), joinPokerTable_func )
 
 function createPokerDecoration ( dim )
-
-	for key, index in pairs ( pokerDekoration ) do
-		local int = pokerDekoration["int"][key]
-		local model = pokerDekoration["id"][key]
-		local x, y, z, r = pokerDekoration["x"][key], pokerDekoration["y"][key], pokerDekoration["z"][key], pokerDekoration["r"][key]
-	end
+    for i = 1, #pokerDekoration["id"] do
+        local int = pokerDekoration["int"][i]
+        local model = pokerDekoration["id"][i]
+        local x, y, z, r = pokerDekoration["x"][i], pokerDekoration["y"][i], pokerDekoration["z"][i], pokerDekoration["r"][i]
+        -- Hier kannst du die Dekoration erstellen
+    end
 end
 
 function setPokerCamera ()

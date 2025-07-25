@@ -20,7 +20,7 @@ function mainTimer ()
 	
 	if hour == 4 and minute == 00 then
 		if weekday == 6 then
-			dbExec ( handler, "UPDATE racing SET UID = '0', MilliSekunden = '0', Sekunden = '0', Minuten = '3'" )
+			dbExec ( handler, "UPDATE racing SET UID = ?, MilliSekunden = ?, Sekunden = ?, Minuten = ?", 0, 0, 0, 3 )
 		end
 		dbExec ( handler, "DELETE FROM warns WHERE extends <= ?", curtime.timestamp )
 		for index, playeritem in pairs ( getElementsByType ( "player" ) ) do

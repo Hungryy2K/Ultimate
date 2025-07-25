@@ -1,3 +1,4 @@
+clickSpecialPeds = clickSpecialPeds or {}
 addEvent ( "onServerRentRoller", true )
 addEvent ( "cancel_faggio_gui", true )
 
@@ -19,6 +20,9 @@ local standped = {
 	createInvulnerablePed ( 17, -2736, 389.2, 4.4, 180 ),
 	createInvulnerablePed ( 17, -2415.6999511719, 350.79998779297, 35.200000762939, 239 )
 }
+clickSpecialPeds[standped[1]] = true
+clickSpecialPeds[standped[2]] = true
+clickSpecialPeds[standped[3]] = true
 local faggioSpawnPoint = {
 	{ ["x"] = -1982.8000488281, ["y"] = 170.30000305176, ["z"] = 27.39999961853, ["rot"] = 90 },
 	{ ["x"] = -2732.3000488281, ["y"] = 388.39999389648, ["z"] = 4, ["rot"] = 180 },

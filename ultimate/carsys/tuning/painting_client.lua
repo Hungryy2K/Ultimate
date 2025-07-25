@@ -1,5 +1,5 @@
-﻿local seaPaint = createMarker ( -1583.24, 156.23, -1, "cylinder", 10, 255, 0, 0, 150, getRootElement() )
-local airPaint = createMarker ( 404.25, 2454.38, 15.25, "cylinder", 10, 255, 0, 0, 150, getRootElement() )
+﻿local seaPaint = createMarker ( -1583.24, 156.23, -1, "cylinder", 10, 255, 0, 0, 150 )
+local airPaint = createMarker ( 404.25, 2454.38, 15.25, "cylinder", 10, 255, 0, 0, 150 )
 createBlip ( 404.25, 2454.38, 0, 63, 1.5, 255, 0, 0, 255, 0, 200 )
 createBlip ( -1583.24, 156.23, 0, 63, 1.5, 255, 0, 0, 255, 0, 200 )
 

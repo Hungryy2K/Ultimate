@@ -10,8 +10,8 @@ playerUIDName = {}
 function MySQL_Startup ( ) 
 	handler = dbConnect ( "mysql", "dbname=".. gMysqlDatabase .. ";host="..gMysqlHost..";port=3306", gMysqlUser, gMysqlPass )
 	if not handler then
-		outputDebugString("[MySQL_Startup] Couldn't run query: Unable to connect to the MySQL server!")
-		outputDebugString("[MySQL_Startup] Please shutdown the server and start the MySQL server!")
+		logError("[MySQL_Startup] Couldn't run query: Unable to connect to the MySQL server!")
+		logError("[MySQL_Startup] Please shutdown the server and start the MySQL server!")
 		return
 	end	
 	local result = dbPoll ( dbQuery ( handler, "SELECT ??,?? FROM ??", "UID", "Name", "players" ), -1 )

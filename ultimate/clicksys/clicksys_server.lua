@@ -1,6 +1,6 @@
 ﻿guiObjectModels = { [2942]=true, [2190]=true, [2754]=true }
 secondClickTypes = { ["ped"] = true, ["player"] = true, ["vehicle"] = true }
-clickSpecialPeds = { [rathausped]=true, [vincenzo]=true, [aztecasBouncer]=true }
+clickSpecialPeds = {} -- Wird dynamisch nach Ped-Erstellung befüllt
 
 function player_click ( button, state, clickedElement, x, y, z )
 

@@ -1,4 +1,5 @@
-﻿jobicons["trucker"] = createPickup ( -1828.4, 99.5, 14.76, 3, 1239, 250 )
+﻿jobicons = jobicons or {}
+jobicons["trucker"] = createPickup ( -1828.4, 99.5, 14.76, 3, 1239, 250 )
 local blip = createBlip ( -1828.4, 99.5, 14.76, 58, 2, 255, 255, 0, 255, 0, 200 )
 
 local truckTrailerPositions = {}

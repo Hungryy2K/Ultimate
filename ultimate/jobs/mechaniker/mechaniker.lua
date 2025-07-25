@@ -1,4 +1,7 @@
-﻿mechanikerjobicon = createPickup ( -2032.45, 161.38, 28.74, 3, 1239, 1000, 0 )
+﻿local Logger = require("utility.Logger")
+local adminLogger = Logger:new("Admin")
+
+mechanikerjobicon = createPickup ( -2032.45, 161.38, 28.74, 3, 1239, 1000, 0 )
 
 mechanikerjobiconblip = createBlip ( -2032.45, 161.38, 28.74, 58, 2, 255, 0, 0, 255, 0, 200 )
 setElementVisibleTo ( mechanikerjobiconblip, getRootElement(), false )
@@ -19,6 +22,7 @@ function repair_func ( player, cmd, target, price )
 				local target = getPlayerFromName ( target )
 				outputChatBox ( "Mechaniker "..getPlayerName ( player ).." hat dir angeboten, dein Auto fuer "..price.." $ zu reparieren. Tippe /acceptrepair zum annehmen.", target, 0, 100, 200 )
 				outputChatBox ( "Du hast "..getPlayerName(target).." angeboten, sein Auto fuer "..price.." $ zu reparieren.", player, 0, 100, 200 )
+				adminLogger:info(getPlayerName(player).." hat "..getPlayerName(target).." eine Reparatur für "..price.." $ angeboten.")
 				vioSetElementData ( target, "mechaniker", getPlayerName ( player ) )
 				vioSetElementData ( target, "mechanikerpreis", price )
 			else
@@ -103,6 +107,7 @@ function tunen_func ( player, cmd, target, price )
 			local target = getPlayerFromName ( target )
 			outputChatBox ( "Mechaniker "..getPlayerName ( player ).." hat dir angeboten, dein Auto fuer "..price.." $ zu tunen. Tippe /accepttune zum annehmen.", target, 0, 100, 200 )
 			outputChatBox ( "Du hast "..getPlayerName(target).." angeboten, sein Auto fuer "..price.." $ zu tunen.", player, 0, 100, 200 )
+			adminLogger:info(getPlayerName(player).." hat "..getPlayerName(target).." ein Tuning für "..price.." $ angeboten.")
 			vioSetElementData ( target, "mechanikert", getPlayerName ( player ) )
 			vioSetElementData ( target, "mechanikertpreis", price )
 		else

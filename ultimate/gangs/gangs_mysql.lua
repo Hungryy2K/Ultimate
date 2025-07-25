@@ -6,7 +6,7 @@ gangData = {}
 function loadGangData ( gangID )
 	local gangDataDSatz
 	local house = houses["pickup"][gangID]
-	local gangDataResult = dbPoll ( dbQuery ( handler, "SELECT LeaderMSG from gang_basic WHERE HausID = '"..gangID.."'" ), -1 )
+	local gangDataResult = dbPoll ( dbQuery ( handler, "SELECT LeaderMSG from gang_basic WHERE HausID = ?", gangID ), -1 )
 	if gangDataResult then
 		if gangDataResult[1] then	
 			gangData[gangID] = {
@@ -23,14 +23,14 @@ end
 
 
 function getMembersInGangCount ( id )
-	local result = dbPoll ( dbQuery ( handler, "SELECT Gang FROM gang_members WHERE Gang = '"..id.."'" ), -1 )
+	local result = dbPoll ( dbQuery ( handler, "SELECT Gang FROM gang_members WHERE Gang = ?", id ), -1 )
 	return result and #result or 0
 end
 
 
 function getGangMembersString ( id )
 	local strings = ";"
-	local result = dbPoll ( dbQuery ( handler, "SELECT UID, Rang FROM gang_members WHERE Gang = '"..id.."'" ), -1 )
+	local result = dbPoll ( dbQuery ( handler, "SELECT UID, Rang FROM gang_members WHERE Gang = ?", id ), -1 )
 	local amount = 0
 	if result then
 		amount = #result
@@ -43,7 +43,7 @@ end
 
 
 function refreshGangRanks ( gangID )
-	local result = dbPoll ( dbQuery ( handler, "SELECT Rang1, Rang2, Rang3 from gang_basic WHERE HausID = '"..gangID.."'" ), -1 )
+	local result = dbPoll ( dbQuery ( handler, "SELECT Rang1, Rang2, Rang3 from gang_basic WHERE HausID = ?", gangID ), -1 )
 	if result then
 		if result[1] then
 			local rang1 = result[1]["Rang1"]

@@ -1,3 +1,8 @@
+-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local securityLogger = Logger:new("Security")
+local damageLogger = Logger:new("damage")
+local carDamageLogger = Logger:new("cardamage")
+
 setWeaponProperty(33, "poor", "weapon_range", 250)
 setWeaponProperty(33, "std", "weapon_range", 250)
 setWeaponProperty(33, "pro", "weapon_range", 200)
@@ -34,55 +39,73 @@ local weaponDamages = {
 	[39] = { [3] = 100, [4] = 100, [5] = 100, [6] = 100, [7] = 100, [8] = 100, [9] = 100 }
 }
 
+local function isValidDamageRequest(player, target, weapon, bodypart, loss)
+    if not isElement(player) or not isElement(target) then return false end
+    if getElementType(player) ~= "player" or getElementType(target) ~= "player" then return false end
+    if type(weapon) ~= "number" or type(bodypart) ~= "number" or type(loss) ~= "number" then return false end
+    if loss < 0 or loss > 100 then return false end
+    -- Beispiel: Spieler darf nicht im Tutorial oder in Safezone sein
+    if getElementData(player, "inTutorial") or getElementData(player, "inSafezone") then return false end
+    return true
+end
 
-function damageCalcServer_func ( player, weapon, bodypart )
-	if source == client then
-		-- Spawnschutz
-		if not vioGetElementData ( client, "spawnProtection" ) and not vioGetElementData (player, "spawnProtection" ) and not vioGetElementData ( player, "tazered" ) then
-			-- Spielzeit
-			if vioGetElementData ( client, "playingtime" ) and vioGetElementData ( client, "playingtime" ) >= noobtime and vioGetElementData (player, "playingtime" ) and vioGetElementData (player, "playingtime" ) >= noobtime then
-				if vioGetElementData (player, "jailtime" ) == 0 and vioGetElementData ( player, "prison" ) == 0 then
-					local x1, y1, z1 = getElementPosition ( client )
-					local x2, y2, z2 = getElementPosition ( player )
-					triggerClientEvent (player, "startBloodScreen", player)
-					local dist = getDistanceBetweenPoints3D(x1,y1,z1,x2,y2,z2)
-					gotLastHit[player] = getTickCount()
-					gotLastHit[client] = getTickCount()
-					if weapon == 34 and bodypart == 9 and dist >= 20 then
-						setPedHeadless ( player, true )
-						killPed ( player, client, weapon, bodypart )
-						outputChatBox ( "Du wurdest gesnipet!", player, 255, 0, 0 )
-						outputLog ( getPlayerName ( client ).." hat "..getPlayerName ( player ).." mit der Sniper ein Headshot gegeben", "dmg" )
-					elseif weapon == 34 and bodypart == 9 then
-						return
-					else
-						local multiply = 1
-						if weapon == 24 and dist <= 1 then
-							multiply = 0.5
-						end	
-						local basicDMG = ( weaponDamages[weapon] and weaponDamages[weapon][bodypart] or 1 ) * multiply			
-						damagePlayer ( player, basicDMG, client, weapon )
-						local pname = getPlayerName ( client )
-						outputLog ( pname.." hat "..getPlayerName ( player ).." mit Waffe "..weapon.." an Part "..bodypart.." getroffen, Schaden: "..basicDMG, "dmg" )
-						if gangAreaUnderAttack then
-							if playerData[pname] and playerData[pname]["imGW"] and isElement ( player ) and getElementType ( player ) == "player" and vioGetElementData ( player, "fraktion" ) ~= vioGetElementData ( client, "fraktion" ) then
-								playerData[pname]["damage"] = playerData[pname]["damage"] + basicDMG
-								if playerData[getPlayerName(player)] then
-									playerData[getPlayerName(player)]["hatDMGbekommen"] = client
-								end
-								vioSetElementData ( client, "GangwarDamageGemacht", ( vioGetElementData ( client, "GangwarDamageGemacht" ) or 0 ) + basicDMG )
-								vioSetElementData ( player, "GangwarDamageBekommen", ( vioGetElementData ( player, "GangwarDamageBekommen" ) or 0 ) + basicDMG )
-								triggerClientEvent ( client, "rechneDMGAn", client, basicDMG )
-							end	
-						end	
-						if client then
-							vioSetElementData ( client, "lastcrime", "violance" )
-						end
-					end
-				end
-			end
-		end
-	end
+function damageCalcServer_func(target, weapon, bodypart, loss)
+    if not isValidDamageRequest(client, target, weapon, bodypart, loss) then
+        securityLogger:error("[DMG] Ungültiger damageCalcServer-Aufruf von: "..tostring(getPlayerName(client)))
+        return
+    end
+    if source == client then
+        -- Spawnschutz
+        if not vioGetElementData ( client, "spawnProtection" ) and not vioGetElementData (player, "spawnProtection" ) and not vioGetElementData ( player, "tazered" ) then
+            -- Spielzeit
+            if vioGetElementData ( client, "playingtime" ) and vioGetElementData ( client, "playingtime" ) >= noobtime and vioGetElementData (player, "playingtime" ) and vioGetElementData (player, "playingtime" ) >= noobtime then
+                if vioGetElementData (player, "jailtime" ) == 0 and vioGetElementData ( player, "prison" ) == 0 then
+                    local x1, y1, z1 = getElementPosition ( client )
+                    local x2, y2, z2 = getElementPosition ( player )
+                    triggerClientEvent (player, "startBloodScreen", player)
+                    local dist = getDistanceBetweenPoints3D(x1,y1,z1,x2,y2,z2)
+                    gotLastHit[player] = getTickCount()
+                    gotLastHit[client] = getTickCount()
+                    if weapon == 34 and bodypart == 9 and dist >= 20 then
+                        setPedHeadless ( player, true )
+                        killPed ( player, client, weapon, bodypart )
+                        outputChatBox ( "Du wurdest gesnipet!", player, 255, 0, 0 )
+                        outputLog ( getPlayerName ( client ).." hat "..getPlayerName ( player ).." mit der Sniper ein Headshot gegeben", "dmg" )
+                        -- Discord Damage Log
+                        damageLogger:discord("DAMAGE: "..getPlayerName(client).." (Serial: "..tostring(getPlayerSerial(client))..", IP: "..tostring(getPlayerIP(client))..") hat "..getPlayerName(player).." mit der Sniper ein Headshot gegeben.", getPlayerSerial(client), getPlayerIP(client))
+                        return
+                    elseif weapon == 34 and bodypart == 9 then
+                        return
+                    else
+                        local multiply = 1
+                        if weapon == 24 and dist <= 1 then
+                            multiply = 0.5
+                        end    
+                        local basicDMG = ( weaponDamages[weapon] and weaponDamages[weapon][bodypart] or 1 ) * multiply            
+                        damagePlayer ( player, basicDMG, client, weapon )
+                        local pname = getPlayerName ( client )
+                        outputLog ( pname.." hat "..getPlayerName ( player ).." mit Waffe "..weapon.." an Part "..bodypart.." getroffen, Schaden: "..basicDMG, "dmg" )
+                        -- Discord Damage Log
+                        damageLogger:discord("DAMAGE: "..getPlayerName(client).." (Serial: "..tostring(getPlayerSerial(client))..", IP: "..tostring(getPlayerIP(client))..") hat "..getPlayerName(player).." mit Waffe: "..tostring(weapon).." an Part "..bodypart.." getroffen, Schaden: "..basicDMG, getPlayerSerial(client), getPlayerIP(client))
+                        if gangAreaUnderAttack then
+                            if playerData[pname] and playerData[pname]["imGW"] and isElement ( player ) and getElementType ( player ) == "player" and vioGetElementData ( player, "fraktion" ) ~= vioGetElementData ( client, "fraktion" ) then
+                                playerData[pname]["damage"] = playerData[pname]["damage"] + basicDMG
+                                if playerData[getPlayerName(player)] then
+                                    playerData[getPlayerName(player)]["hatDMGbekommen"] = client
+                                end
+                                vioSetElementData ( client, "GangwarDamageGemacht", ( vioGetElementData ( client, "GangwarDamageGemacht" ) or 0 ) + basicDMG )
+                                vioSetElementData ( player, "GangwarDamageBekommen", ( vioGetElementData ( player, "GangwarDamageBekommen" ) or 0 ) + basicDMG )
+                                triggerClientEvent ( client, "rechneDMGAn", client, basicDMG )
+                            end    
+                        end    
+                        if client then
+                            vioSetElementData ( client, "lastcrime", "violance" )
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
 addEvent ( "damageCalcServer", true )
 addEventHandler ( "damageCalcServer", getRootElement(), damageCalcServer_func )

@@ -1,4 +1,10 @@
-﻿AztecasLager = createObject ( 3577, -1324.4953, 2545.166, 86.82, 0, 0, 180 )
+﻿-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local adminLogger = Logger:new("Admin")
+local securityLogger = Logger:new("Security")
+local discordLogger = Logger:new("Discord")
+local factionLogger = Logger:new("factionlog")
+
+AztecasLager = createObject ( 3577, -1324.4953, 2545.166, 86.82, 0, 0, 180 )
 AztecaszweitLager = createObject ( 3577, 715.9721, 1966.29, 5.53 )
 
 TriadenLager = createObject ( 3577, -2173.6677, 632.83, 49.4375 )
@@ -46,82 +52,140 @@ end
 setTimer ( saveDepotInDB, 25*60*1000, 0 )
 
 
+-- Cooldown-Variable für Fraktionsbank
+local frakbankCooldown = {}
+
+function fraktionsKasseTransaktion(player, fraktion, betrag, typ)
+    -- Cooldown (z.B. 10 Sekunden)
+    if frakbankCooldown[player] and getTickCount() - frakbankCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut eine Fraktionsbank-Transaktion durchführst.", true)
+        return
+    end
+    frakbankCooldown[player] = getTickCount()
+    -- Input-Validierung
+    if not fraktion or type(fraktion) ~= "number" or fraktion < 1 or fraktion > 20 then
+        securityLogger:error("[EXPLOIT] Ungültige Fraktion bei Fraktionskasse.", player)
+        outputNeutralInfo(player, "Ungültige Fraktion.", true)
+        return
+    end
+    if not betrag or type(betrag) ~= "number" or betrag < 1 or betrag > 1000000 then
+        securityLogger:error("[EXPLOIT] Ungültiger Betrag bei Fraktionskasse: "..tostring(betrag), player)
+        outputNeutralInfo(player, "Ungültiger Betrag (max. 1.000.000 pro Transaktion).", true)
+        return
+    end
+    -- Rechteprüfung
+    if vioGetElementData(player, "fraktion") ~= fraktion or vioGetElementData(player, "rang") < 2 then
+        securityLogger:error("[SECURITY] Unberechtigte Fraktionskassen-Aktion.", player)
+        outputNeutralInfo(player, "Du bist nicht berechtigt, Fraktionsbank-Transaktionen durchzuführen.", true)
+        return
+    end
+    -- Durchführung
+    if typ == "einzahlung" then
+        factionDepotData["money"][fraktion] = (factionDepotData["money"][fraktion] or 0) + betrag
+        dbExec(handler, "UPDATE ?? SET ??=? WHERE ??=?", "fraktionen", "DepotGeld", factionDepotData["money"][fraktion], "ID", fraktion)
+        adminLogger:info(getPlayerName(player).." hat "..betrag.."$ in die Fraktionskasse der Fraktion "..fraktion.." eingezahlt.")
+        securityLogger:info("[FRAKBANK] Einzahlung: "..getPlayerName(player).." -> Fraktion "..fraktion..": "..betrag.."$.")
+        discordLogger:discord("FRAKBANK: "..getPlayerName(player).." hat "..betrag.."$ in die Fraktionskasse der Fraktion "..fraktion.." eingezahlt.", getPlayerSerial(player), getPlayerIP(player))
+        local serial = getPlayerSerial(player)
+        local ip = getPlayerIP(player)
+        factionLogger:discord("FRAKBANK-EINZAHLUNG: "..getPlayerName(player).." Fraktion: "..fraktion.." Betrag: "..betrag, serial, ip)
+        outputNeutralInfo(player, "Einzahlung erfolgreich.", false)
+    elseif typ == "entnahme" then
+        if (factionDepotData["money"][fraktion] or 0) < betrag then
+            outputNeutralInfo(player, "Die Fraktionskasse enthält nicht genug Geld.", true)
+            return
+        end
+        factionDepotData["money"][fraktion] = factionDepotData["money"][fraktion] - betrag
+        dbExec(handler, "UPDATE ?? SET ??=? WHERE ??=?", "fraktionen", "DepotGeld", factionDepotData["money"][fraktion], "ID", fraktion)
+        adminLogger:info(getPlayerName(player).." hat "..betrag.."$ aus der Fraktionskasse der Fraktion "..fraktion.." entnommen.")
+        securityLogger:info("[FRAKBANK] Entnahme: "..getPlayerName(player).." aus Fraktion "..fraktion..": "..betrag.."$.")
+        discordLogger:discord("FRAKBANK: "..getPlayerName(player).." hat "..betrag.."$ aus der Fraktionskasse der Fraktion "..fraktion.." entnommen.", getPlayerSerial(player), getPlayerIP(player))
+        local serial = getPlayerSerial(player)
+        local ip = getPlayerIP(player)
+        factionLogger:discord("FRAKBANK-ENTNAHME: "..getPlayerName(player).." Fraktion: "..fraktion.." Betrag: "..betrag, serial, ip)
+        outputNeutralInfo(player, "Entnahme erfolgreich.", false)
+    else
+        securityLogger:error("[EXPLOIT] Ungültiger Typ bei Fraktionskasse: "..tostring(typ), player)
+        outputNeutralInfo(player, "Ungültiger Transaktionstyp.", true)
+        return
+    end
+end
+
+local fDepotCooldown = {}
+
 function fDepotServer_func ( player, take, money, drugs, mats )
-
-	if player == client then
-
-		local fraktion = vioGetElementData ( player, "fraktion" )
-		if fraktion == 11 then
-			fraktion = 10
-		end
-		if depotFactions[fraktion] then
-			if tonumber ( money ) and tonumber ( drugs ) and tonumber ( mats ) and tonumber ( money ) + tonumber ( drugs ) + tonumber ( mats ) > 0 then
-				local pmoney = tonumber ( vioGetElementData ( player, "money" ) )
-				local pdrugs = tonumber ( vioGetElementData ( player, "drugs" ) )
-				local pmats = tonumber ( vioGetElementData ( player, "mats" ) )
-				local money = math.floor ( math.abs ( tonumber ( money ) ) )
-				local drugs = math.floor ( math.abs ( tonumber ( drugs ) ) )
-				local mats = math.floor ( math.abs ( tonumber ( mats ) ) )
-				if take then
-					if money > 0 and tonumber ( vioGetElementData ( player, "rang" ) ) < 5 then
-						outputChatBox ( "Du darfst kein Geld entnehmen!", player, 125, 0, 0 )
-						return nil
-					end
-					if drugs > 0 and tonumber ( vioGetElementData ( player, "rang" ) ) < 5 then
-						outputChatBox ( "Du darfst keine Drogen entnehmen!", player, 125, 0, 0 )
-						return nil
-					end
-					if mats > 0 and tonumber ( vioGetElementData ( player, "rang" ) ) < 5 then
-						outputChatBox ( "Du darfst keine Materialien entnehmen!", player, 125, 0, 0 )
-						return nil
-					end
-					if factionDepotData["money"][fraktion] < money then
-						outputChatBox ( "In der Fraktionskasse ist nicht genug Geld!", player, 125, 0, 0 )
-					elseif factionDepotData["drugs"][fraktion] < drugs then
-						outputChatBox ( "In der Fraktionskasse sind nicht genug Drogen!", player, 125, 0, 0 )
-					elseif factionDepotData["mats"][fraktion] < mats then
-						outputChatBox ( "In der Fraktionskasse sind nicht genug Materialien!", player, 125, 0, 0 )
-					else
-						local msg = getPlayerName(player).." hat "..money.." $, "..drugs.." Gramm Drogen und "..mats.." Materialien aus dem Depot genommen."
-						outputLog ( msg, "fkasse" )
-						--sendMSGForFaction ( msg, tonumber(vioGetElementData ( player, "fraktion" )) )
-						outputDebugString ( msg )
-						vioSetElementData ( player, "money", pmoney + money )
-						vioSetElementData ( player, "drugs", pdrugs + drugs )
-						vioSetElementData ( player, "mats", pmats + mats )
-						factionDepotData["money"][fraktion] = factionDepotData["money"][fraktion] - money
-						factionDepotData["drugs"][fraktion] = factionDepotData["drugs"][fraktion] - drugs
-						factionDepotData["mats"][fraktion] = factionDepotData["mats"][fraktion] - mats
-						triggerClientEvent ( player, "showFDepot", getRootElement(), factionDepotData["money"][fraktion], factionDepotData["mats"][fraktion], factionDepotData["drugs"][fraktion] )
-					end
-				else
-					if money > pmoney then
-						outputChatBox ( "Du hast nicht genug Geld dafür!", player, 125, 0, 0 )
-					elseif drugs > pdrugs then
-						outputChatBox ( "Du hast nicht genug Drogen dafür!", player, 125, 0, 0 )
-					elseif mats > pmats then
-						outputChatBox ( "Du hast nicht genug Materialen dafür!", player, 125, 0, 0 )
-					else
-						vioSetElementData ( player, "money", pmoney - money )
-						vioSetElementData ( player, "drugs", pdrugs - drugs )
-						vioSetElementData ( player, "mats", pmats - mats )
-						factionDepotData["money"][fraktion] = factionDepotData["money"][fraktion] + money
-						factionDepotData["drugs"][fraktion] = factionDepotData["drugs"][fraktion] + drugs
-						factionDepotData["mats"][fraktion] = factionDepotData["mats"][fraktion] + mats
-						local msg = getPlayerName(player).." hat "..money.." $, "..drugs.." Gramm Drogen und "..mats.." Materialien in das Depot gelegt."
-						outputLog ( msg, "fkasse" )
-						--sendMSGForFaction ( msg, tonumber(vioGetElementData ( player, "fraktion" )) )
-						outputDebugString ( msg )
-						triggerClientEvent ( player, "showFDepot", getRootElement(), factionDepotData["money"][fraktion],  factionDepotData["mats"][fraktion], factionDepotData["drugs"][fraktion] )
-					end
-				end
-			else
-				outputChatBox ( "Ungültige Eingabe!", player, 125, 0, 0 )
-			end
-		else
-			outputChatBox ( "Du bist in einer ungültigen Fraktion!", player, 125, 0, 0 )
-		end
-	end
+    if player ~= client then return end
+    if fDepotCooldown[player] and getTickCount() - fDepotCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut eine Depot-Transaktion durchführst.", true)
+        return
+    end
+    fDepotCooldown[player] = getTickCount()
+    local fraktion = vioGetElementData ( player, "fraktion" )
+    if fraktion == 11 then fraktion = 10 end
+    if not depotFactions[fraktion] then
+        outputNeutralInfo(player, "Du bist in einer ungültigen Fraktion!", true)
+        securityLogger:error("[FDEPOT] Ungültige Fraktion: "..getPlayerName(player))
+        return
+    end
+    money = tonumber(money) or 0
+    drugs = tonumber(drugs) or 0
+    mats = tonumber(mats) or 0
+    if (money + drugs + mats) <= 0 then
+        outputNeutralInfo(player, "Ungültige Eingabe!", true)
+        return
+    end
+    local pmoney = tonumber(vioGetElementData(player, "money"))
+    local pdrugs = tonumber(vioGetElementData(player, "drugs"))
+    local pmats = tonumber(vioGetElementData(player, "mats"))
+    money = math.floor(math.abs(money))
+    drugs = math.floor(math.abs(drugs))
+    mats = math.floor(math.abs(mats))
+    if take then
+        if (money > 0 or drugs > 0 or mats > 0) and tonumber(vioGetElementData(player, "rang")) < 5 then
+            outputNeutralInfo(player, "Du bist nicht befugt, etwas zu entnehmen!", true)
+            securityLogger:error("[FDEPOT] Unberechtigte Entnahme: "..getPlayerName(player))
+            return
+        end
+        if factionDepotData["money"][fraktion] < money then
+            outputNeutralInfo(player, "In der Fraktionskasse ist nicht genug Geld!", true)
+        elseif factionDepotData["drugs"][fraktion] < drugs then
+            outputNeutralInfo(player, "In der Fraktionskasse sind nicht genug Drogen!", true)
+        elseif factionDepotData["mats"][fraktion] < mats then
+            outputNeutralInfo(player, "In der Fraktionskasse sind nicht genug Materialien!", true)
+        else
+            local msg = getPlayerName(player).." hat "..money.." $, "..drugs.." Gramm Drogen und "..mats.." Materialien aus dem Depot genommen."
+            adminLogger:info(msg)
+            discordLogger:discord("FDEPOT-ENTNAHME: "..msg, getPlayerSerial(player), getPlayerIP(player))
+            vioSetElementData(player, "money", pmoney + money)
+            vioSetElementData(player, "drugs", pdrugs + drugs)
+            vioSetElementData(player, "mats", pmats + mats)
+            factionDepotData["money"][fraktion] = factionDepotData["money"][fraktion] - money
+            factionDepotData["drugs"][fraktion] = factionDepotData["drugs"][fraktion] - drugs
+            factionDepotData["mats"][fraktion] = factionDepotData["mats"][fraktion] - mats
+            triggerClientEvent(player, "showFDepot", getRootElement(), factionDepotData["money"][fraktion], factionDepotData["mats"][fraktion], factionDepotData["drugs"][fraktion])
+            outputNeutralInfo(player, "Entnahme erfolgreich.", false)
+        end
+    else
+        if money > pmoney then
+            outputNeutralInfo(player, "Du hast nicht genug Geld dafür!", true)
+        elseif drugs > pdrugs then
+            outputNeutralInfo(player, "Du hast nicht genug Drogen dafür!", true)
+        elseif mats > pmats then
+            outputNeutralInfo(player, "Du hast nicht genug Materialen dafür!", true)
+        else
+            vioSetElementData(player, "money", pmoney - money)
+            vioSetElementData(player, "drugs", pdrugs - drugs)
+            vioSetElementData(player, "mats", pmats - mats)
+            factionDepotData["money"][fraktion] = factionDepotData["money"][fraktion] + money
+            factionDepotData["drugs"][fraktion] = factionDepotData["drugs"][fraktion] + drugs
+            factionDepotData["mats"][fraktion] = factionDepotData["mats"][fraktion] + mats
+            local msg = getPlayerName(player).." hat "..money.." $, "..drugs.." Gramm Drogen und "..mats.." Materialien in das Depot gelegt."
+            adminLogger:info(msg)
+            discordLogger:discord("FDEPOT-EINZAHLUNG: "..msg, getPlayerSerial(player), getPlayerIP(player))
+            triggerClientEvent(player, "showFDepot", getRootElement(), factionDepotData["money"][fraktion],  factionDepotData["mats"][fraktion], factionDepotData["drugs"][fraktion])
+            outputNeutralInfo(player, "Einzahlung erfolgreich.", false)
+        end
+    end
 end
 addEvent ( "fDepotServer", true )
 addEventHandler ( "fDepotServer", getRootElement(), fDepotServer_func )
@@ -292,7 +356,7 @@ addEventHandler ("giveFgunsWeapon", getRootElement(), function (waffe, moneycost
 
 				factionDepotData["money"][fac] = factionDepotData["money"][fac] + moneycost
 				factionDepotData["mats"][fac] = factionDepotData["mats"][fac] - matscost
-				outputLog ( getPlayerName(client) .. " hat ein(e) "..waffe.." gekauft.", "fguns" )
+				adminLogger:info(getPlayerName(client) .. " hat ein(e) "..waffe.." gekauft.", "fguns")
 			else
 				outputChatBox ( "Nicht genug Geld auf der Hand!", client, 155, 0, 0 )
 			end

@@ -84,11 +84,11 @@ if getElementType(hitElement) == "player" and (dim) then
 			setElementInterior(hitElement, 1, 2147.925, 1600.579, 1005.46)
 			setElementDimension(hitElement, 1)
 			vioSetElementData ( hitElement, "isinRob", true )
-			outputLog ( "[CASINO]: Verbrecher "..getPlayerName(hitElement).." hat das Casino betreten!", "bad")
+			adminLogger:info("[CASINO]: Verbrecher "..getPlayerName(hitElement).." hat das Casino betreten!", "bad")
 		elseif isOnStateDuty ( hitElement ) then
 			setElementInterior(hitElement, 1, 2147.925, 1600.579, 1005.46)
 			setElementDimension(hitElement, 1)
-			outputLog ( "[CASINO]: Beamter "..getPlayerName(hitElement).." hat das Casino betreten!", "bad")
+			adminLogger:info("[CASINO]: Beamter "..getPlayerName(hitElement).." hat das Casino betreten!", "bad")
 		else
 			outputChatBox ( "Du bist nicht befugt!", hitElement, 175, 0, 0 )
 		end
@@ -104,9 +104,9 @@ if getElementType(hitElement) == "player" and (dim) then
 		setElementDimension(hitElement, 0)
 		vioSetElementData ( hitElement, "isinRob", false )
 		if isEvil(hitElement) then
-			outputLog ( "[CASINO]: Verbrecher "..getPlayerName(player).." hat das Casino verlassen!", "bad")
+			adminLogger:info("[CASINO]: Verbrecher "..getPlayerName(player).." hat das Casino verlassen!", "bad")
 		else
-			outputLog ( "[CASINO]: Beamter "..getPlayerName(player).." hat das Casino verlassen!", "bad")
+			adminLogger:info("[CASINO]: Beamter "..getPlayerName(player).." hat das Casino verlassen!", "bad")
 		end
 	end
 end
@@ -149,7 +149,7 @@ if pdim == casinodim then
 					sendMSGForFaction ( msg, 10, 200, 200, 0 )
 				end
 				sendMSGForFaction ( msg, robfaction, 0, 150, 0 )
-				outputLog ( "[CASINO]: "..getPlayerName(player).." ("..robfaction..") ueberfaellt das Casino!", "bad")
+				adminLogger:info("[CASINO]: "..getPlayerName(player).." ("..robfaction..") ueberfaellt das Casino!", "bad")
 				dynamit = createObject(1654, 2144.3000488281, 1625.5, 992.85)
 				setElementInterior(dynamit, 1)
 				setElementDimension(dynamit, 1)
@@ -304,7 +304,7 @@ function victoryrob()
 		sendMSGForFaction ( msg, 10, 200, 200, 0 )
 	end
 	sendMSGForFaction ( msg, robfaction, 0, 150, 0 )
-	outputLog ( "[CASINO]: Der Tresorraum wurde aufgesprengt!", "bad")
+	adminLogger:info("[CASINO]: Der Tresorraum wurde aufgesprengt!", "bad")
 	moveObject(tresor, 1, 2146.1000976563, 1628.8000488281, 993.5, 59.195983886719, 0, 42)
 	stealmarker = createMarker(2141.8000488281, 1641.9000244141, 992.59997558594, 'cylinder', 1, 255, 0, 0)
 	setElementInterior(stealmarker, 1)
@@ -327,6 +327,7 @@ function victoryrob()
 					end
 					vioSetElementData ( hitElement, "money", vioGetElementData ( hitElement, "money" ) + pricebrutto )
 					outputChatBox("Du hast das Casino erfolgreich ausgeraubt! Verschwinde jetzt von hier!", hitElement, 0, 200, 0)
+					adminLogger:info(getPlayerName(hitElement).." hat das Casino erfolgreich ausgeraubt.")
 					local praefix = "Staatsbeamte im Dienst sind"
 					if anzahlState == 1 then
 						praefix = "Staatsbeamter im Dienst ist"
@@ -334,7 +335,7 @@ function victoryrob()
 					outputChatBox("Da "..anzahlState.." "..praefix..", hast du "..pricebrutto.." erbeutet.", hitElement, 0, 200, 0)
 					anzahlState = 0
 					local fraktion = vioGetElementData(hitElement, "fraktion")
-					outputLog ( "[CASINO]: "..getPlayerName(hitElement).." ("..fraktion..") hat im Casino "..pricebrutto.."$ erbeutet ("..anzahlState.." Beamte)", "bad")
+					adminLogger:info("[CASINO]: "..getPlayerName(hitElement).." ("..fraktion..") hat im Casino "..pricebrutto.."$ erbeutet ("..anzahlState.." Beamte)", "bad")
 					local msg = "[ILLEGAL]: Das Casino wurde erfolgreich überfallen!"
 					sendMSGForFaction ( msg, 1, 200, 0, 0 )
 					if robfaction ~= 2 then
@@ -355,8 +356,9 @@ function victoryrob()
 					sendMSGForFaction ( msg, robfaction, 0, 150, 0 )
 				else
 					outputChatBox("Du hast das Casino erfolgreich beschützt!", hitElement, 0, 200, 0)
+					adminLogger:info(getPlayerName(hitElement).." hat das Casino erfolgreich beschützt.")
 					local fraktion = vioGetElementData(hitElement, "fraktion")
-					outputLog ( "[CASINO]: "..getPlayerName(hitElement).." ("..fraktion..") hat das Casino erfolgreich beschuetzt!", "bad")
+					adminLogger:info("[CASINO]: "..getPlayerName(hitElement).." ("..fraktion..") hat das Casino erfolgreich beschuetzt!", "bad")
 					local anzahlState = 0
 					for index, player in pairs(getElementsByType("player")) do
 						if(isOnStateDuty(player)) then
@@ -558,7 +560,7 @@ function sohier(player)
 				sendMSGForFaction ( msg, 10, 200, 200, 0 )
 			end
 			sendMSGForFaction ( msg, robfaction, 200, 0, 0 )
-			outputLog ( "[CASINO]: "..getPlayerName(player).." hat die Bombe erfolgreich entschaerft!", "bad")
+			adminLogger:info("[CASINO]: "..getPlayerName(player).." hat die Bombe erfolgreich entschaerft!", "bad")
 			local anzahlState = 0
 				for index, player in pairs(getElementsByType("player")) do
 					if(isOnStateDuty(player)) then

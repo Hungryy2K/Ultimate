@@ -48,7 +48,7 @@ addEventHandler ( "sendMail", getRootElement(), sendMail_func )
 
 
 function getMailsForClient_func ( pname )
-	local result = dbPoll ( dbQuery ( handler, "SELECT Text FROM email WHERE EmpfaengerUID = '"..playerUID[pname].."'" ), -1 )
+	local result = dbPoll ( dbQuery ( handler, "SELECT Text FROM email WHERE EmpfaengerUID = ?", playerUID[pname] ), -1 )
 	local player = getPlayerFromName ( pname )
 	if result then
 		if result[1] then

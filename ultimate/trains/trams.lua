@@ -1,5 +1,5 @@
-﻿tram1 = createVehicle ( 449, -2257, 541, 34, "TRAM" )
-tram2 = createVehicle ( 449, -1714, 1298, 6.6, "TRAM" )
+﻿tram1 = createVehicle ( 449, -2257, 541, 34, 0, 0, 0, "TRAM" )
+tram2 = createVehicle ( 449, -1714, 1298, 6.6, 0, 0, 0, "TRAM" )
 setTrainDerailable ( tram1, false )
 setTrainDerailable ( tram2, false )
 setVehicleLocked ( tram1, true )

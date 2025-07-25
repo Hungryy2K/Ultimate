@@ -1,7 +1,10 @@
-﻿MafiaExit = createMarker ( -42.649452209473, 1405.7553710938, 1084.0788574219, "corona", 1, getColorFromString ( "#FF000099" ) )
+﻿clickSpecialPeds = clickSpecialPeds or {}
+
+MafiaExit = createMarker ( -42.649452209473, 1405.7553710938, 1084.0788574219, "corona", 1, getColorFromString ( "#FF000099" ) )
 setElementInterior (MafiaExit, 8)
 
 vincenzo = createInvulnerablePed ( 46, -50.07, 1403.25, 1084.42, 0, 8, 0 )
+clickSpecialPeds[vincenzo] = true
 local x, y, z = getElementPosition ( vincenzo )
 vioSetElementData ( vincenzo, "sx", x )
 vioSetElementData ( vincenzo, "sy", y )

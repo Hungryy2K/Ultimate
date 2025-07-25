@@ -235,7 +235,7 @@ addEventHandler ( "onResourceStart", resourceRoot, checkBlackListEntrys )
 
 
 function getLottoJackpotWinnerMySQL ( l1, l2, l3 )
-	local result = dbPoll ( dbQuery ( handler, "SELECT id, UID FROM lotto WHERE z1 = '"..l1.."' AND z2 = '"..l2.."' AND z3 = '"..l3.."'" ), -1 )
+	local result = dbPoll ( dbQuery ( handler, "SELECT id, UID FROM lotto WHERE z1 = ? AND z2 = ? AND z3 = ?", l1, l2, l3 ), -1 )
 	if result then
 		local amount = #result
 		if amount > 0 then
@@ -352,7 +352,7 @@ addEventHandler ( "onResourceStart", resourceRoot, loadOffers )
 
 
 function createSaveAblePlacedObjects ()
-	dbExec ( handler, "DELETE FROM object WHERE deleteTime < '"..getMinTime ().."'" )
+	dbExec ( handler, "DELETE FROM object WHERE deleteTime < ?", getMinTime() )
 	local result = dbPoll ( dbQuery ( handler, "SELECT * FROM object" ), -1 )
 	if result then
 		if result[1] then
@@ -386,7 +386,10 @@ addEventHandler ( "onResourceStart", resourceRoot, initTetrisHighscores )
 
 function offlinemsg ( msg, sender, empfaenger )
 	local datum = timestamp()
-	outputDebugString ( "offlinemsg: "..playerUID[empfaenger] )
+	if not playerUID[empfaenger] then
+		outputDebugString("[offlinemsg] FEHLER: UID für Empfaenger '"..tostring(empfaenger).."' ist nil!")
+		return false
+	end
 	if not dbExec ( handler, "INSERT INTO pm (Sender, EmpfaengerUID, Text, Datum) VALUES (?,?,?,?)", sender, playerUID[empfaenger], msg, datum ) then
 		outputDebugString ( "[offlinemsg] Error executing the query" )
 		return false
@@ -396,11 +399,15 @@ end
 
 
 function insertPlayerIntoLoggedIn ( name, ip, serial )
-	if not dbExec ( handler, "INSERT INTO loggedin (UID,Serial,IP) VALUES (?,?,?)", playerUID[name], serial, ip ) then
-		outputDebugString ( "[insertPlayerIntoLoggedIn] Error executing the query" )
-		return false
-	end
-	return true
+    if not playerUID[name] then
+        outputDebugString("[insertPlayerIntoLoggedIn] FEHLER: UID für '"..tostring(name).."' ist nil!")
+        return false
+    end
+    if not dbExec ( handler, "INSERT INTO loggedin (UID,Serial,IP) VALUES (?,?,?)", playerUID[name], serial, ip ) then
+        outputDebugString ( "[insertPlayerIntoLoggedIn] Error executing the query" )
+        return false
+    end
+    return true
 end
 
 

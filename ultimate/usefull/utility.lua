@@ -449,3 +449,12 @@ function getSecondTime ( duration )
 	
 	return total
 end
+
+function createInvulnerablePed(skin, x, y, z, rot, int, dim)
+    local ped = createPed(skin, x, y, z, rot or 0)
+    if int then setElementInterior(ped, int) end
+    if dim then setElementDimension(ped, dim) end
+    setElementData(ped, "invulnerable", true)
+    addEventHandler("onPedDamage", ped, function() cancelEvent() end)
+    return ped
+end

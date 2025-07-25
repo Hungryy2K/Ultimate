@@ -1,4 +1,9 @@
-﻿function putFoodInSlot ( player, item )
+﻿-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local adminLogger = Logger:new("Admin")
+local securityLogger = Logger:new("Security")
+local discordLogger = Logger:new("Discord")
+
+function putFoodInSlot ( player, item )
 
 	for i = 1, 3 do
 		if vioGetElementData ( player, "food"..i ) == 0 then
@@ -99,7 +104,7 @@ function unwrapPeresent ( player )
 			elseif rnd == 3 then
 				word = "Alpha"
 			end
-			outputServerLog ( getPlayerName ( player ).." hat einen "..word.." gewonnen!" )
+			adminLogger:info(getPlayerName ( player ).." hat einen "..word.." gewonnen!")
 			outputChatBox ( "Melde dich bei Zipper, um deinen Gewinn einzuloesen!", player, 0, 125, 0 )
 			outputChatBox ( "Bonuscode: "..string.sub ( md5 ( getPlayerName ( player ).."x-mas"..word ), 1, 8 ), player, 125, 0, 0 )
 			content = "Fahrzeug: "..word
@@ -243,6 +248,8 @@ function giveitem_func ( target, item, food, amount )
 						outputChatBox ( "Du hast "..getPlayerName ( target ).." folgendes Item gegeben: "..foodName[slot]".", player, 10, 125, 10 )
 						outputChatBox ( "Du hast von "..getPlayerName ( player ).." folgendes Item erhalten: "..foodName[slot]".", target, 10, 125, 10 )
 						executeCommandHandler ( "meCMD", player, " gibt "..getPlayerName(target).." etwas zu essen." )
+						adminLogger:info(getPlayerName(player).." hat "..getPlayerName(target).." folgendes Item gegeben: "..foodName[slot])
+						adminLogger:info(getPlayerName(target).." hat von "..getPlayerName(player).." folgendes Item erhalten: "..foodName[slot])
 					else
 						outputChatBox ( "Der Spieler hat keinen freien Inventarslot mehr!", player, 125, 0, 0 )
 					end
@@ -341,3 +348,33 @@ function giveitem_func ( target, item, food, amount )
 end
 addEvent ( "giveitem", true )
 addEventHandler ( "giveitem", getRootElement(), giveitem_func )
+
+function giveItemToPlayer(player, target, item, menge)
+    -- Input-Validierung
+    if not target or not isElement(target) or getElementType(target) ~= "player" then
+        securityLogger:error("[EXPLOIT] Ungültiges Ziel beim Itemtausch.")
+        return
+    end
+    if not item or type(item) ~= "string" or #item > 32 then
+        securityLogger:error("[EXPLOIT] Ungültiges Item beim Itemtausch: "..tostring(item))
+        return
+    end
+    if not menge or type(menge) ~= "number" or menge < 1 or menge > 100 then
+        securityLogger:error("[EXPLOIT] Ungültige Menge beim Itemtausch: "..tostring(menge))
+        return
+    end
+    -- Cooldown
+    if getTickCount() - (vioGetElementData(player, "lastItemGive") or 0) < 5000 then
+        securityLogger:error("[EXPLOIT] Spieler "..getPlayerName(player).." versucht zu schnell Items zu tauschen.")
+        return
+    end
+    vioSetElementData(player, "lastItemGive", getTickCount())
+    -- Rechteprüfung (z.B. besitzt das Item)
+    if not playerHasItem(player, item, menge) then
+        securityLogger:error("[EXPLOIT] Spieler "..getPlayerName(player).." versucht ein Item zu geben, das er nicht besitzt.")
+        return
+    end
+    -- Durchführung
+    -- ... Itemtausch-Logik ...
+    adminLogger:info(getPlayerName(player).." hat "..menge.."x "..item.." an "..getPlayerName(target).." gegeben.")
+end

@@ -90,7 +90,7 @@ function makeOffer_func ( typ, startGebot, description, timeToRun, count )
 			timeToRun = formatDateToInteger ( minute + timeToRun, hour, yearday, year )
 			local result = dbExec ( handler, "INSERT INTO ?? (ID, typ, Anbieter, Hoechstbietender, Hoechstgebot, LaeuftBis, Beschreibung, OptischesDatum, Anzahl) VALUES (?,?,?,?,?,?,?,?,?)", "buyit", "ID", "typ", "AnbieterUID", "HoechstbietenderUID", "Hoechstgebot", "LaeuftBis", "Beschreibung", "OptischesDatum", "Anzahl", auktionID, typ, playerUID[pname], 0, startGebot, timeToRun, description, timeToRunOptical, count )
 			if not result then
-				outputDebugString("[makeOffer_func] Error executing the query")
+				logError("[makeOffer_func] Error executing the query")
 			end
 			_G[typ.."Offers"][ID]["LaeuftBis"] = timeToRun
 			_G[typ.."Offers"][ID]["OptischesDatum"] = timeToRunOptical
@@ -164,7 +164,7 @@ end
 
 function buyItGiveItem ( typ, pname, anzahl, id, offerer )
 
-	outputDebugString ( tostring (typ).."|"..tostring(pname).."|"..tostring(anzahl).."|"..tostring(id) )
+	logError ( tostring (typ).."|"..tostring(pname).."|"..tostring(anzahl).."|"..tostring(id) )
 	local ingame = getPlayerFromName ( pname )
 	if typ == "Drug" then
 		if isElement ( ingame ) and vioGetElementData ( ingame, "loggedin" ) and vioGetElementData ( ingame, "loggedin" ) == 1 then

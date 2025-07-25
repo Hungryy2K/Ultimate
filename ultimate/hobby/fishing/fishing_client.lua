@@ -113,7 +113,7 @@ function leftMouseFishing ()
 end
 
 -- Fishing Shop --
-fishingShop = createMarker ( -1353.87, 2057.60, 52.04, "cylinder", 1, 255, 0, 0, 150, getRootElement() )
+fishingShop = createMarker ( -1353.87, 2057.60, 52.04, "cylinder", 1, 255, 0, 0, 150 )
 
 function fishingShop_hit ( player, dim )
 

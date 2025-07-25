@@ -1,3 +1,7 @@
+-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local adminLogger = Logger:new("Admin")
+local securityLogger = Logger:new("Security")
+
 factionColours = {}
 factionRankNames = {}
 	local i = 0
@@ -134,201 +138,126 @@ factionRankNames = {}
 		factionRankNames[i][4] = "BigSmoke"
 		factionRankNames[i][5] = "Sweet"
 
-function teamchat_func ( player, cmd, ... )	
-	local parametersTable = {...}
-	local text = table.concat( parametersTable, " " )
-	local Fraktion = vioGetElementData ( player, "fraktion" )
-	local FRank = vioGetElementData ( player, "rang" )
-	if Fraktion and Fraktion >= 1 then
-		if not text then
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nBitte einen\nText eingeben!", 5000, 125, 0, 0 )
-		else
-			local red = 0
-			local green = 0
-			local blue = 0
-			local title = "intern"
-			if factionRankNames[Fraktion][FRank] then
-				title = factionRankNames[Fraktion][FRank]
-				red, green, blue = factionColours[Fraktion][1], factionColours[Fraktion][2], factionColours[Fraktion][3]
-			end
-			
-			for playeritem, index in pairs(fraktionMembers[Fraktion]) do 
-				if isElement ( playeritem ) then
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				else
-					fraktionMembers[Fraktion][playeritem] = nil
-				end
-			end
-		end
-	elseif isInGang ( getPlayerName ( player ) ) then
-		sendMessageToGangMembers ( getPlayerGang ( player ), getPlayerRankNameInGang ( player ).." "..getPlayerName ( player )..": "..text )
-	else
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist in\nkeiner Fraktion!", 5000, 125, 0, 0 )
-	end
+local teamchatCooldown = {}
+local gteamchatCooldown = {}
+local bteamchatCooldown = {}
+
+function teamchat_func ( player, cmd, ... )
+    if teamchatCooldown[player] and getTickCount() - teamchatCooldown[player] < 2000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut im Fraktionschat schreibst.", true)
+        return
+    end
+    teamchatCooldown[player] = getTickCount()
+    local parametersTable = {...}
+    local text = table.concat( parametersTable, " " )
+    local Fraktion = vioGetElementData ( player, "fraktion" )
+    local FRank = vioGetElementData ( player, "rang" )
+    if not Fraktion or Fraktion < 1 then
+        outputNeutralInfo(player, "Du bist in keiner Fraktion!", true)
+        securityLogger:error("[TEAMCHAT] Versuch ohne Fraktion: "..getPlayerName(player))
+        return
+    end
+    if not text or text == "" then
+        outputNeutralInfo(player, "Bitte einen Text eingeben!", true)
+        return
+    end
+    local red, green, blue = 0, 0, 0
+    local title = "intern"
+    if factionRankNames[Fraktion][FRank] then
+        title = factionRankNames[Fraktion][FRank]
+        red, green, blue = factionColours[Fraktion][1], factionColours[Fraktion][2], factionColours[Fraktion][3]
+    end
+    for playeritem, index in pairs(fraktionMembers[Fraktion]) do 
+        if isElement ( playeritem ) then
+            outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
+        else
+            fraktionMembers[Fraktion][playeritem] = nil
+        end
+    end
+    adminLogger:info("[TEAMCHAT] "..getPlayerName(player)..": "..text)
 end
 addCommandHandler ( "t", teamchat_func )
 addCommandHandler ( "teamsay", teamchat_func )
 
 
-function gteamchat_func ( player, cmd, ... )	
-		local parametersTable = {...}
-		local text = table.concat( parametersTable, " " )
-		local Fraktion = tonumber(vioGetElementData ( player, "fraktion" ))
-		local FRank = tonumber(vioGetElementData ( player, "rang" ))
-		if Fraktion == 1 or Fraktion == 6 or Fraktion == 8 or Fraktion == 10 or Fraktion == 11 then
-			if text == nil then
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "\nBitte einen\nText eingeben!", 5000, 125, 0, 0 )
-			else
-				red = 140
-				green = 10
-				blue = 10
-				local title = "intern"
-				
-				if factionRankNames[Fraktion][FRank] then
-					title = factionRankNames[Fraktion][FRank]
-				end
-				
-				if Fraktion == 1 then
-					red = 140
-					green = 10
-					blue = 10
-				end
-				if Fraktion == 6 then
-					red = 140
-					green = 10
-					blue = 10
-				end
-				if Fraktion == 8 then
-					red = 140
-					green = 10
-					blue = 10
-				end
-				if Fraktion == 10 then
-					red = 140
-					green = 10
-					blue = 10
-				end
-				if Fraktion == 11 then
-					red = 140
-					green = 10
-					blue = 10
-				end
-				for playeritem, key in pairs(fraktionMembers[1]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[6]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[8]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[10]) do
-					if isElement ( playeritem ) then
-						outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-					else
-						fraktionMembers[10][playeritem] = nil
-					end
-				end
-				for playeritem, key in pairs(fraktionMembers[11]) do
-					if isElement ( playeritem ) then
-						outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-					else
-						fraktionMembers[11][playeritem] = nil
-					end
-				end
-				outputLog ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", "Team-Chat" )
-			end
-		else
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist in\nkeiner Fraktion!", 5000, 125, 0, 0 )
-		end
+function gteamchat_func ( player, cmd, ... )
+    if gteamchatCooldown[player] and getTickCount() - gteamchatCooldown[player] < 2000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut im Gruppenchat schreibst.", true)
+        return
+    end
+    gteamchatCooldown[player] = getTickCount()
+    local parametersTable = {...}
+    local text = table.concat( parametersTable, " " )
+    local Fraktion = tonumber(vioGetElementData ( player, "fraktion" ))
+    local FRank = tonumber(vioGetElementData ( player, "rang" ))
+    if not (Fraktion == 1 or Fraktion == 6 or Fraktion == 8 or Fraktion == 10 or Fraktion == 11) then
+        outputNeutralInfo(player, "Du bist in keiner gültigen Fraktion für diesen Chat!", true)
+        securityLogger:error("[GTEAMCHAT] Versuch ohne gültige Fraktion: "..getPlayerName(player))
+        return
+    end
+    if not text or text == "" then
+        outputNeutralInfo(player, "Bitte einen Text eingeben!", true)
+        return
+    end
+    local red, green, blue = 140, 10, 10
+    local title = "intern"
+    if factionRankNames[Fraktion][FRank] then
+        title = factionRankNames[Fraktion][FRank]
+    end
+    for _, fid in ipairs({1,6,8,10,11}) do
+        for playeritem, key in pairs(fraktionMembers[fid]) do
+            if isElement(playeritem) then
+                outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
+            else
+                fraktionMembers[fid][playeritem] = nil
+            end
+        end
+    end
+    adminLogger:info("[GTEAMCHAT] "..getPlayerName(player)..": "..text)
 end
 addCommandHandler ("g", gteamchat_func )
 
 
 
 
-function bteamchat_func ( player, cmd, ... )	
-	local FRank = tonumber(vioGetElementData ( player, "rang" ))
-	if FRank >= 4 then
-		local parametersTable = {...}
-		local text = table.concat( parametersTable, " " )
-		local Fraktion = tonumber(vioGetElementData ( player, "fraktion" ))
-		if Fraktion == 2 or Fraktion == 3 or Fraktion == 4 or Fraktion == 7 or Fraktion == 9 or Fraktion == 12 or Fraktion == 13 then
-			if text == nil then
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "\nBitte einen\nText eingeben!", 5000, 125, 0, 0 )
-			else
-				red = 107
-				green = 107
-				blue = 107
-				local title = "intern"
-				
-				if factionRankNames[Fraktion][FRank] then
-					title = factionRankNames[Fraktion][FRank]
-				end
-				
-				if Fraktion == 2 then
-					red = 107
-					green = 107
-					blue = 107
-				end
-				if Fraktion == 3 then
-					red = 107
-					green = 107
-					blue = 107
-				end
-				if Fraktion == 4 then
-					red = 107
-					green = 107
-					blue = 107
-				end
-				if Fraktion == 7 then
-					red = 107
-					green = 107
-					blue = 107
-				end
-				if Fraktion == 9 then
-					red = 107
-					green = 107
-					blue = 107
-				end
-				if Fraktion == 12 then
-					red = 107
-					green = 107
-					blue = 107
-				end
-				if Fraktion == 13 then
-					red = 107
-					green = 107
-					blue = 107
-				end
-				for playeritem, key in pairs(fraktionMembers[2]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[3]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[4]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[7]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[9]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[12]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				for playeritem, key in pairs(fraktionMembers[13]) do
-					outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
-				end
-				outputLog ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", "b-Chat" )
-			end
-		else
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist in\nkeiner Fraktion!", 5000, 125, 0, 0 )
-		end
-	else
-		outputChatBox ( "Erst ab Rang 4!", player, 200, 0, 0 )
-	end
+function bteamchat_func ( player, cmd, ... )
+    if bteamchatCooldown[player] and getTickCount() - bteamchatCooldown[player] < 2000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut im Bündnischat schreibst.", true)
+        return
+    end
+    bteamchatCooldown[player] = getTickCount()
+    local FRank = tonumber(vioGetElementData ( player, "rang" ))
+    if FRank < 4 then
+        outputNeutralInfo(player, "Erst ab Rang 4!", true)
+        securityLogger:error("[BTEAMCHAT] Versuch ohne Rang: "..getPlayerName(player))
+        return
+    end
+    local parametersTable = {...}
+    local text = table.concat( parametersTable, " " )
+    local Fraktion = tonumber(vioGetElementData ( player, "fraktion" ))
+    if not (Fraktion == 2 or Fraktion == 3 or Fraktion == 4 or Fraktion == 7 or Fraktion == 9 or Fraktion == 12 or Fraktion == 13) then
+        outputNeutralInfo(player, "Du bist in keiner gültigen Fraktion für diesen Chat!", true)
+        securityLogger:error("[BTEAMCHAT] Versuch ohne gültige Fraktion: "..getPlayerName(player))
+        return
+    end
+    if not text or text == "" then
+        outputNeutralInfo(player, "Bitte einen Text eingeben!", true)
+        return
+    end
+    local red, green, blue = 107, 107, 107
+    local title = "intern"
+    if factionRankNames[Fraktion][FRank] then
+        title = factionRankNames[Fraktion][FRank]
+    end
+    for _, fid in ipairs({2,3,4,7,9,12,13}) do
+        for playeritem, key in pairs(fraktionMembers[fid]) do
+            if isElement(playeritem) then
+                outputChatBox ( "[ "..title.." "..getPlayerName(player)..": "..text.." ]", playeritem, red, green, blue )
+            else
+                fraktionMembers[fid][playeritem] = nil
+            end
+        end
+    end
+    adminLogger:info("[BTEAMCHAT] "..getPlayerName(player)..": "..text)
 end
 addCommandHandler ("b", bteamchat_func )

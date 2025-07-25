@@ -1,4 +1,5 @@
-﻿jobicons["farmer"] = createPickup ( -1058.36, -1195.6, 128.83, 3, 1239, 250 )
+﻿jobicons = jobicons or {}
+jobicons["farmer"] = createPickup ( -1058.36, -1195.6, 128.83, 3, 1239, 250 )
 local farmerBlip = createBlip ( -1058.36, -1195.6, 128.83, 58, 2, 255, 255, 0, 255, 0, 200 )
 local isInFarmJob = {}
 local lastTimerMarkerHit = {}

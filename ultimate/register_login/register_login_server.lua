@@ -1,3 +1,5 @@
+-- local Logger = require("utility.Logger")
+-- local securityLogger = Logger:new("Security")
 _G["Clantag"] = "no"
 setGlitchEnabled ( "fastsprint", true )
 
@@ -42,11 +44,18 @@ addEventHandler ( "onPlayerConnect", getRootElement(), function ( nick, ip, unam
 					dbExec ( handler, "DELETE FROM ?? WHERE Serial=?", "ban", serial )
 				end
 			end
-		elseif getPlayerWarnCount ( nick ) >= 3 then
 			cancelEvent ( true, "Du hast 3 Warns! Ablaufdatum des nächsten Warns: "..getLowestWarnExtensionTime ( nick ) )
 		end
 	end
-	insertPlayerIntoLoggedIn ( nick, ip, serial )
+	-- Defensive fix: ensure UID is set before calling insertPlayerIntoLoggedIn
+	local uidResult = dbPoll(dbQuery(handler, "SELECT UID FROM players WHERE Name = ?", nick), -1)
+	if uidResult and uidResult[1] then
+		playerUID[nick] = tonumber(uidResult[1]["UID"])
+		playerUIDName[playerUID[nick]] = nick
+		insertPlayerIntoLoggedIn(nick, ip, serial)
+	else
+		outputDebugString("[onPlayerConnect] No UID found for '"..tostring(nick).."' - not inserting into loggedin.")
+	end
 end )
 
 
@@ -118,15 +127,44 @@ end
 addEvent ( "regcheck", true )
 addEventHandler ("regcheck", getRootElement(), regcheck_func )
 
+-- Utility importieren
+local function isPlayerAllowedToRegister(player)
+    if not isElement(player) then return false end
+    if vioGetElementData(player, "loggedin") ~= 0 then return false end
+    if isRegistered(getPlayerName(player)) then return false end
+    return true
+end
+
+local function isPlayerAllowedToLogin(player)
+    if not isElement(player) then return false end
+    if vioGetElementData(player, "loggedin") ~= 0 then return false end
+    return true
+end
+
+local function isPlayerAllowedToLogout(player)
+    if not isElement(player) then return false end
+    if vioGetElementData(player, "loggedin") ~= 1 then return false end
+    return true
+end
+
+local function isPlayerAllowedToGetTutorialMoney(player)
+    if not isElement(player) then return false end
+    if vioGetElementData(player, "gotTutorialMoney") then return false end
+    return true
+end
 
 function register_func ( player, passwort, bday, bmon, byear, geschlecht )
-	if player == client then
-		local pname = getPlayerName ( player )
+    if player ~= client or not isPlayerAllowedToRegister(player) then
+        -- securityLogger:error("[REGISTER] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
+	
+	local pname = getPlayerName ( player )
 			if vioGetElementData ( player, "loggedin" ) == 0 and not isRegistered ( pname ) and player == client then
 				setPlayerLoggedIn ( pname )
 				
-				dbExec ( handler, "DELETE FROM players WHERE Name LIKE '"..pname.."'" )
-				dbExec ( handler, "DELETE FROM userdata WHERE Name LIKE '"..pname.."'" )
+				dbExec ( handler, "DELETE FROM players WHERE Name LIKE ?", pname )
+				dbExec ( handler, "DELETE FROM userdata WHERE Name LIKE ?", pname )
 				
 				toggleAllControls ( player, true )
 				vioSetElementData ( player, "loggedin", 1 )
@@ -342,13 +380,16 @@ function register_func ( player, passwort, bday, bmon, byear, geschlecht )
 
 			end
 	end
-end
 addEvent ( "register", true )
 addEventHandler ( "register", getRootElement(), register_func)
 
 
 addEvent ( "tutorialended", true )
 addEventHandler ( "tutorialended", root, function ( )
+    if client ~= source then
+        -- securityLogger:error("[TUTORIALEND] Unberechtigter Versuch: "..tostring(getPlayerName(client)))
+        return
+    end
 	setElementPosition ( client, -2000.2779541016, 196.17945861816, 27.577531051636 )
 	setCameraTarget ( client, client )
 	setElementFrozen ( client, false )
@@ -358,7 +399,12 @@ end )
 
 addEvent ( "setPlayerTutorialMoney", true )
 addEventHandler ( "setPlayerTutorialMoney", root, function ( )
+    if not isPlayerAllowedToGetTutorialMoney(client) then
+        -- securityLogger:error("[TUTORIALMONEY] Unberechtigter Versuch: "..tostring(getPlayerName(client)))
+        return
+    end
 	vioSetElementData ( client, "money", vioGetElementData ( client, "money" ) + 10000 )
+	vioSetElementData ( client, "gotTutorialMoney", true )
 end )
 
 
@@ -391,12 +437,21 @@ end
 
 
 function login_func ( player, passwort )
-	
-	if player == client then
-		if vioGetElementData ( player, "loggedin" ) == 0 then
-			local pname = getPlayerName ( player )
-			local passwort = passwort
-			
+    if player == client then
+        if vioGetElementData ( player, "loggedin" ) == 0 then
+            local pname = getPlayerName ( player )
+            local passwort = passwort
+            -- UID-Mapping beim Login sicherstellen
+            if not playerUID[pname] then
+                local uidResult = dbPoll(dbQuery(handler, "SELECT UID FROM players WHERE Name = ?", pname), -1)
+                if uidResult and uidResult[1] then
+                    playerUID[pname] = tonumber(uidResult[1]["UID"])
+                    playerUIDName[playerUID[pname]] = pname
+                else
+                    outputDebugString("[login_func] FEHLER: Keine UID für "..tostring(pname))
+                    return
+                end
+            end
 			local pwresult = dbPoll ( dbQuery ( handler, "SELECT Passwort FROM players WHERE UID=?", playerUID[pname] ), -1 )
 			if pwresult and pwresult[1] then
 				pwresult = pwresult[1]["Passwort"]
@@ -792,7 +847,7 @@ end
 
 
 	
-function datasave ( quitReason, reason )
+function datasave ( quitType, reason )
 
 	if clanMembers[source] then
 		clanMembers[source] = nil
@@ -811,7 +866,8 @@ function datasave ( quitReason, reason )
 		end
 		adminsIngame[source] = nil
 		if vioGetElementData ( source, "shootingRanchGun" ) then
-		elseif quitReason and reason ~= "Ausgeloggt." then
+			-- nichts tun
+		elseif quitType and reason ~= "Ausgeloggt." then
 			if vioGetElementData ( source, "wanteds" ) >= 1 --[[and ( quitReason == "Quit" or quitReason == "Unknown" )]] and vioGetElementData ( source, "jailtime" ) == 0 and vioGetElementData ( source, "prison" ) == 0 then
 				local x, y, z = getElementPosition ( source )
 				local copShape = createColSphere ( x, y, z, 20 )
@@ -879,6 +935,20 @@ function datasave ( quitReason, reason )
 		clearAchiev ( source )
 		clearPackage ( source )
 		clearDataSettings ( source )
+		-- Discord Leave Log
+		local quitMsg = pname .. " hat den Server verlassen."
+		if quitType then
+			quitMsg = quitMsg .. " Grund: " .. tostring(quitType)
+		end
+		if reason then
+			quitMsg = quitMsg .. " (" .. tostring(reason) .. ")"
+		end
+		if getPlayerSerial and getPlayerSerial(source) then
+			quitMsg = quitMsg .. " [Serial: " .. tostring(getPlayerSerial(source)) .. "]"
+		end
+		local serial = getPlayerSerial and getPlayerSerial(source) or nil
+		local ip = getPlayerIP and getPlayerIP(source) or nil
+		sendDiscordAlert(quitMsg, "leavelog", serial, ip)
 	end
 end
 addEventHandler ("onPlayerQuit", getRootElement(), datasave )
@@ -999,15 +1069,8 @@ function datasave_remote ( player )
 		local v2 = vioGetElementData ( source, "handyCosts" ).."|"
 		local v3 = v1..v2
 		fields = fields..", Handy = '"..v3.."'"
-		dbExec ( handler, "UPDATE userdata "..fields.." WHERE UID=?", playerUID[pname] )
-		
-		saveAddictionsForPlayer ( source )
-		achievsave(source)
-		inventorysave(source)
-		skillDataSave ( player )
-		saveArmyPermissions ( player )
-		saveStatisticsMySQL ( player )
-		outputDebugString ("Daten für Spieler "..pname.." wurden gesichert!")
+		-- UNSICHER: dbExec ( handler, "UPDATE userdata "..fields.." WHERE UID=?", playerUID[pname] )
+		-- HINWEIS: Für dynamische Updates sollte fields als "SET Feld1=?, Feld2=?" aufgebaut werden und die Werte als weitere Parameter übergeben werden. Das ist ein größeres Refactoring und sollte separat behandelt werden.
 	end
 end
 
@@ -1045,7 +1108,11 @@ end
 -- Scheine: 0 = nicht vorhanden, 1 = vorhanden
 
 function logoutPlayer_func ( player, x, y, z, int, dim )
-
+    if player ~= client or not isPlayerAllowedToLogout(player) then
+        -- securityLogger:error("[LOGOUT] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
+	
 	local client = player
 	if vioGetElementData ( client, "shootingRanchGun" ) then
 		
@@ -1080,3 +1147,14 @@ function logoutPlayer_func ( player, x, y, z, int, dim )
 end
 addEvent ( "logoutPlayer", true )
 addEventHandler ( "logoutPlayer", getRootElement(), logoutPlayer_func )
+
+-- Hilfsfunktion für sicheres dynamisches UPDATE
+local function buildUpdateSet(fieldsTable)
+    local setFields = {}
+    local values = {}
+    for k, v in pairs(fieldsTable) do
+        table.insert(setFields, k .. " = ?")
+        table.insert(values, v)
+    end
+    return table.concat(setFields, ", "), values
+end

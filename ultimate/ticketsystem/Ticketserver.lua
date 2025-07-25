@@ -1,3 +1,7 @@
+-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local securityLogger = Logger:new("Security")
+local ticketLogger = Logger:new("ticketlog")
+
 function retrieveTicketList ( typ )
 	local player = client
 	local admlvl = vioGetElementData ( player, "adminlvl" )
@@ -11,7 +15,7 @@ function retrieveTicketList ( typ )
 	-- Anfragen & Fragen
 	elseif ( typ == 2 and admlvl >= 2 ) or ( admlvl >= 2 and typ == 3 ) then
 		local tickets = {}
-		local result = dbPoll ( dbQuery ( handler, "SELECT name FROM tickets WHERE kathegory = '"..typ.."' ORDER BY date ASC LIMIT 10" ), -1 )
+		local result = dbPoll ( dbQuery ( handler, "SELECT name FROM tickets WHERE kathegory = ? ORDER BY date ASC LIMIT 10", typ ), -1 )
 		if result[1] then
 			for i = 1, #result do
 				tickets[result[i]["name"]] = result[i]["name"]
@@ -95,10 +99,12 @@ function orderSupportTicket ( kathegory, text )
 				outputChatBox ( "Du hast noch eine ausstehende Antwort! Tippe /readticket, um sie zu lesen!", player, 200, 0, 0 )
 			else
 				outputChatBox ( "Es existiert bereits eine Anfrage von dir!", player, 200, 0, 0 )
+				securityLogger:error("[EXPLOIT] Spieler "..getPlayerName(player).." versucht mehrfach ein Ticket zu stellen.")
 			end
 		end
 	else
 		outputChatBox ( "Du hast vor kurzem bereits eine Anfrage gestellt!", player, 200, 0, 0 )
+		securityLogger:error("[EXPLOIT] Spieler "..getPlayerName(player).." versucht zu schnell erneut ein Ticket zu stellen.")
 	end
 end
 addEvent ( "orderSupportTicket", true )
@@ -261,7 +267,7 @@ addEventHandler("doReplyTicket", root, function(retext, reid)
 	
 	if(query)then
 		
-		local query2 = dbPoll ( dbQuery ( handler, "SELECT UID FROM ticketsystem WHERE id = '"..tonumber(reid).."'"), -1 )
+		local query2 = dbPoll ( dbQuery ( handler, "SELECT UID FROM ticketsystem WHERE id = ?", tonumber(reid) ), -1 )
 			
 		if query2 and query2[1] then
 			local row = query2[1]

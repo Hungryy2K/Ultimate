@@ -1,5 +1,7 @@
 ﻿-- "bauarbeiterLVL" einfügen --
 
+jobicons = jobicons or {}
+
 jobicons["Bauarbeiter"] = createPickup ( 816.79998779297, 856.79998779297, 12.5, 3, 1239, 250 )
 local blip = createBlip ( 816.79998779297, 856.79998779297, 12.5, 58, 2, 255, 255, 0, 255, 0, 200 )
 local lastTimerMarkerHit = {}

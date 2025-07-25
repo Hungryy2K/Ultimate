@@ -1,3 +1,6 @@
+-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local securityLogger = Logger:new("Security")
+
 jobicons = {}
 
 function isHitman ( player )
@@ -134,6 +137,7 @@ function job_func ( player )
 			end
 		else
 			triggerClientEvent ( player, "infobox_start", getRootElement(), "Du hast bereits\neinen Job! Tippe\n/quitjob, um zu\nkündigen.", 5000, 125, 0, 0 )
+			securityLogger:error("[EXPLOIT] Spieler "..getPlayerName(player).." versucht mehrfach einen Job anzunehmen.")
 		end
 	else
 		triggerClientEvent ( player, "infobox_start", getRootElement(), "Du musst noch\n"..vioGetElementData ( player, "jobtime" ).." Minuten\nwarten, bis du\neinen Job\nannehmen kannst.", 5000, 125, 0, 0 )

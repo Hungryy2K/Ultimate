@@ -23,6 +23,13 @@ local isadminduty = false
 local hitglocke = false
 
 
+function isValidDamageEvent(attacker, weapon, bodypart, loss)
+    if not attacker or not weapon or not bodypart or not loss then return false end
+    if type(weapon) ~= "number" or type(bodypart) ~= "number" or type(loss) ~= "number" then return false end
+    if loss < 0 or loss > 100 then return false end
+    return true
+end
+
 function cancelAllDamage ( attacker, weapon, bodypart, loss )
 	if attacker == lp then
 		local ping = getPlayerPing ( lp )
@@ -35,7 +42,9 @@ function cancelAllDamage ( attacker, weapon, bodypart, loss )
 					local hitsound = playSound ( "sounds/hitsound.wav" )
 					setSoundVolume ( hitsound, 0.5 )
 				end
-				triggerServerEvent ( "damageCalcServer", lp, source, weapon, bodypart, loss )
+				if isValidDamageEvent(attacker, weapon, bodypart, loss) then
+					triggerServerEvent ( "damageCalcServer", lp, source, weapon, bodypart, loss )
+				end
 			end
 		end	
 	elseif lp == source then

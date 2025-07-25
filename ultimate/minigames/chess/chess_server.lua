@@ -1,5 +1,7 @@
 ﻿local chessPlayers = {}
 local chessTimers = {}
+-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local adminLogger = Logger:new("Admin")
 
 function chess_func ( playerA, cmd, playerB )
 
@@ -85,6 +87,7 @@ function endDraw_func ( x1, y1, x2, y2, special )
 		setTimer ( resign_func, 3000, 1, true, client )
 		outputChatBox ( "Du gewinnst!", client, 0, 125, 0 )
 		outputChatBox ( "Du hast verloren.", chessPlayers[client], 0, 125, 0 )
+		adminLogger:info(getPlayerName(chessPlayers[client]).." hat ein Schachspiel verloren.")
 	else
 		if vioGetElementData ( client, "chessPlayer" ) then
 			local player = chessPlayers[client]

@@ -1,4 +1,5 @@
-﻿jobicons["trash"] = createPickup ( -1897.1510009766, -1671.5749511719, 22.664850234985, 3, 1239, 1, 99 )
+﻿jobicons = jobicons or {}
+jobicons["trash"] = createPickup ( -1897.1510009766, -1671.5749511719, 22.664850234985, 3, 1239, 1, 99 )
 local blip = createBlip (  -1897.1510009766, -1671.5749511719, 22.664850234985, 58, 2, 255, 255, 0, 255, 0, 200 )
 
 function trashJobIconHit ( player )

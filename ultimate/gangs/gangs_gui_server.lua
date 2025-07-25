@@ -19,7 +19,9 @@
 				local paintjob = getVehiclePaintjob ( veh )
 				local light = vioGetElementData ( veh, "lcolor" )
 				
-				dbExec ( handler, "DELETE * FROM gang_vehicles WHERE GangID = '"..id.."'" )
+				-- UNSICHER: dbExec ( handler, "DELETE * FROM gang_vehicles WHERE GangID = '"..id.."'" )
+				-- SICHER:
+				dbExec ( handler, "DELETE FROM gang_vehicles WHERE GangID = ?", id )
 				
 				local querya, queryb
 				
@@ -51,7 +53,7 @@
 				
 				local result = dbExec(handler, "INSERT INTO gang_vehicles ( "..querya.." ) VALUES (?)", queryb)
 				if ( not result ) then
-					outputDebugString("Error executing the query: (" .. mysql_errno(handler) .. ") " .. mysql_error(handler))
+					logError("Error executing the query: (" .. mysql_errno(handler) .. ") " .. mysql_error(handler))
 					destroyElement ( _G["privVeh"..xy] )
 				end
 			else

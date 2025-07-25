@@ -7,7 +7,7 @@ function mySQLBlocksCreate ( array )
 			["name"] = playerUIDName[tonumber(array[i]["UID"])],
 			["points"] = tonumber ( array[i]["Punkte"] ) }
 	end
-	outputDebugString("Es wurden "..amount.." Tetris-Highscores gefunden.")
+	logError("Es wurden "..amount.." Tetris-Highscores gefunden.")
 end
   
 

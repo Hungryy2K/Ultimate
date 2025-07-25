@@ -1,4 +1,7 @@
-﻿function handychange_func ( player )
+﻿-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local securityLogger = Logger:new("Security")
+
+function handychange_func ( player )
 
 	if player == client then
 		if vioGetElementData ( player, "handystate" ) == "on" then
@@ -117,9 +120,11 @@ function callSomeone_func ( player, number )
 										else
 											outputChatBox ( "Besetzt...", player, 125, 0, 0 )
 											triggerClientEvent ( player, "phonesound", player )
+											securityLogger:error("[EXPLOIT] Spieler "..getPlayerName(player).." versucht mehrfach zu telefonieren.")
 										end
 									else
 										outputChatBox ( "Du telefonierst bereits!", player, 125, 0, 0 )
+										securityLogger:error("[EXPLOIT] Spieler "..getPlayerName(player).." versucht mehrfach zu telefonieren.")
 									end
 								else
 									outputChatBox ( "Handy ist ausgeschaltet!", player, 125, 0, 0 )

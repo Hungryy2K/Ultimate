@@ -214,20 +214,24 @@ end
 function guiCreateButton ( x, y, width, height, text, relative, parent )
 
 	local btn = _guiCreateButton ( x, y, width, height, text, relative, parent )
-	--guiSetProperty ( btn, "MouseCursorImage", "set:"..mouseSet.." image:"..mouseName )
-	guiSetFont ( btn, "default-bold-small" )
+	if isElement(btn) then
+		guiSetFont ( btn, "default-bold-small" )
+	else
+		outputDebugString("guiCreateButton: Button konnte nicht erstellt werden! x="..tostring(x)..", y="..tostring(y)..", w="..tostring(width)..", h="..tostring(height)..", text="..tostring(text)..", rel="..tostring(relative)..", parent="..tostring(parent), 1)
+	end
 	return btn
 end
 
 function guiCreateWindow ( x, y, width, height, titleBarText, relative )
 
 	local element = _guiCreateWindow ( x, y, width, height, titleBarText, relative )
-	guiSetProperty ( element, "CaptionColour", "FF770000" )
-	--guiSetProperty ( element, "MouseCursorImage", "set:"..mouseSet.." image:"..mouseName )
-	
-	guiWindowSetSizable ( element, false )
-	guiWindowSetMovable ( element, false )
-	
+	if isElement(element) then
+		guiSetProperty ( element, "CaptionColour", "FF770000" )
+		guiWindowSetSizable ( element, false )
+		guiWindowSetMovable ( element, false )
+	else
+		outputDebugString("guiCreateWindow: Window konnte nicht erstellt werden! x="..tostring(x)..", y="..tostring(y)..", w="..tostring(width)..", h="..tostring(height)..", title="..tostring(titleBarText)..", rel="..tostring(relative), 1)
+	end
 	return element
 end
 
@@ -241,21 +245,27 @@ end
 function guiCreateEdit ( arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12 )
 
 	local element = _guiCreateEdit ( arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12 )
-	--guiSetProperty ( element, "MouseCursorImage", "set:"..mouseSet.." image:"..mouseName )
+	if not isElement(element) then
+		outputDebugString("guiCreateEdit: Edit konnte nicht erstellt werden! args="..table.concat({tostring(arg1),tostring(arg2),tostring(arg3),tostring(arg4),tostring(arg5),tostring(arg6),tostring(arg7),tostring(arg8),tostring(arg9),tostring(arg10),tostring(arg11),tostring(arg12)}, ","), 1)
+	end
 	return element
 end
 
 function guiCreateStaticImage ( arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12 )
 
 	local element = _guiCreateStaticImage ( arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12 )
-	--guiSetProperty ( element, "MouseCursorImage", "set:"..mouseSet.." image:"..mouseName )
+	if not isElement(element) then
+		outputDebugString("guiCreateStaticImage: StaticImage konnte nicht erstellt werden! args="..table.concat({tostring(arg1),tostring(arg2),tostring(arg3),tostring(arg4),tostring(arg5),tostring(arg6),tostring(arg7),tostring(arg8),tostring(arg9),tostring(arg10),tostring(arg11),tostring(arg12)}, ","), 1)
+	end
 	return element
 end
 
 function guiCreateLabel ( arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12 )
 
 	local element = _guiCreateLabel ( arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12 )
-	--guiSetProperty ( element, "MouseCursorImage", "set:"..mouseSet.." image:"..mouseName )
+	if not isElement(element) then
+		outputDebugString("guiCreateLabel: Label konnte nicht erstellt werden! args="..table.concat({tostring(arg1),tostring(arg2),tostring(arg3),tostring(arg4),tostring(arg5),tostring(arg6),tostring(arg7),tostring(arg8),tostring(arg9),tostring(arg10),tostring(arg11),tostring(arg12)}, ","), 1)
+	end
 	return element
 end
 --[[function mouse_over_nil ()
@@ -296,6 +306,8 @@ end
 
 local guiElementToolTips = {}
 local guiElementToolImages = {}
+gImage = {}
+gLabel = {}
 
 function guiGetScreenPosition ( element )
 

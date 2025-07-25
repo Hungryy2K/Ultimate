@@ -1,4 +1,8 @@
-﻿--[[local antiCheatCounter = 0
+﻿-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+-- local adminLogger = Logger:new("Admin")
+--local anticheatLogger = Logger:new("anticheatlog")
+
+--[[local antiCheatCounter = 0
 
 local _giveWeaponBlocked = false
 local weaponAntiCheat = {}
@@ -97,7 +101,8 @@ function cheaterFound ( player, kind, details )
 	antiCheatCounter = antiCheatCounter + 1
 	local ip = getPlayerIP ( player )
 	local serial = getPlayerSerial ( player )
-	--dbExec ( handler, "INSERT INTO ?? ( ??, ??, ??, ??, ??, ?? ) VALUES (?,?,?,?,?,?)", "ban", "Name", "Admin", "Grund", "Datum", "IP", "Serial", getPlayerName ( player ), 'Anticheat', kind, timestamp(), ip, serial )
+	adminLogger:info("[Anticheat] Spieler "..getPlayerName(player).." gebannt! Grund: "..kind.." Details: "..details.." IP: "..ip.." Serial: "..serial)
+	anticheatLogger:discord("ANTICHEAT: "..getPlayerName(player).." gebannt! Grund: "..kind.." Details: "..details, getPlayerSerial(player), getPlayerIP(player))
 	outputLog ( "Spieler "..getPlayerName ( player ).." auf Grund von: "..details, "anticheat" )
 	outputChatBox ( getPlayerName ( player ).." wurde vom Anticheat gebannt! Zipper "..antiCheatCounter.." Punkte, Cheater: 0!", getRootElement(), 125, 0, 0 )
 	kickPlayer ( player, "Von: Anticheat, Grund: "..kind.." ( Gebannt! )" )

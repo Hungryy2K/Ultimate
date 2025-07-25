@@ -1,4 +1,6 @@
-﻿aztecasBouncer = createInvulnerablePed ( 24, 697.08, 1968.51, 5.18, 180, 0, 0 )
+﻿clickSpecialPeds = clickSpecialPeds or {}
+aztecasBouncer = createInvulnerablePed ( 24, 697.08, 1968.51, 5.18, 180, 0, 0 )
+clickSpecialPeds[aztecasBouncer] = true
 
 setTimer ( setPedAnimation, 10000, 0, aztecasBouncer, "SMOKING", "M_smkstnd_loop", 10000, false, false, false, false )
 

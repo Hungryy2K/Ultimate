@@ -246,7 +246,7 @@ local function resetBank()
 	tresortuer = createObject(2634, 2144.1765136719, 1626.9592285156, 994.27239990234, 0, 0, 180)
 	setElementInterior(tresortuer, 1)
 	setElementDimension(tresortuer, bankdim)
-	outputLog ( "[BANK]: Die Bank hat sich erholt.", "bad")
+	adminLogger:info("[BANK]: Die Bank hat sich erholt.")
 	local msg = "[INFO]: Die Bank hat sich von dem Überfall erholt."
 	sendMSGForFaction ( msg, 1, 50, 50, 100 )
 	sendMSGForFaction ( msg, 2, 50, 50, 100 )
@@ -292,7 +292,7 @@ if bombe == "fertig" then
 	for index, player in pairs(getElementsWithinColShape(element["tresorcol"], "player")) do
 		--outputChatBox("Die Bombe ist hochgegangen!", player, 0, 200, 0)
 		outputChatBox("Die Fässer haben Feuer gefangen! Der Tresorraum geht in 30 Sekunden hoch!", player, 200, 0, 0)
-		outputLog ( "[BANK]: Die Bombe ist hochgegangen!", "bad")
+		adminLogger:info("[BANK]: Die Bombe ist hochgegangen!")
 		local msg = "[BANK]: Die Bombe ist hochgegangen!"
 		sendMSGForFaction ( msg, 1, 200, 0, 0 )
 		if robfaction ~= 2 then
@@ -331,6 +331,7 @@ if bombe == "fertig" then
 				if isEvil(hitElement) then
 					if (doingbankrob[hitElement] == true) then
 						outputChatBox("Du hast bereits deinen Anteil genommen!", hitElement, 200, 0, 0)
+						adminLogger:info(getPlayerName(hitElement).." hat seinen Anteil beim Bankraub genommen.")
 					else
 						destroyElement(source)
 						setPedAnimation(hitElement, "bomber", "BOM_Plant_Loop", -1, true, false, false)
@@ -346,7 +347,7 @@ if bombe == "fertig" then
 							erbeutetbankrob[hitElement] = geld
 							robfaction = nil
 							local fraktion = vioGetElementData(hitElement, "fraktion")
-							outputLog ( "[BANK]: "..getPlayerName(hitElement).." ("..fraktion..") hat "..geld.."$ in der Bank erbeutet!", "bad")
+							adminLogger:info("[BANK]: "..getPlayerName(hitElement).." ("..fraktion..") hat "..geld.."$ in der Bank erbeutet!")
 							setTimer(function()
 								doingbankrob[hitElement] = false
 								erbeutetbankrob[hitElement] = 0
@@ -364,9 +365,10 @@ if bombe == "fertig" then
 						toggleAllControls(hitElement, true)
 						robfaction = nil
 						local fraktion = vioGetElementData(hitElement, "fraktion")
-						outputLog ( "[BANK]: "..getPlayerName(hitElement).." ("..fraktion..") hat "..geld.."$ der Bank gerettet!", "bad")
+						adminLogger:info("[BANK]: "..getPlayerName(hitElement).." ("..fraktion..") hat "..geld.."$ der Bank gerettet!")
 						vioSetElementData ( hitElement, "boni", vioGetElementData ( hitElement, "boni" ) + (geld/20) )
 						outputChatBox("Du hast die Bank beschützt! Du kriegst "..(geld/20).."$ Bonus beim nächsten Payday!", hitElement, 0, 150, 0)
+						adminLogger:info(getPlayerName(hitElement).." hat die Bank erfolgreich beschützt.")
 						for i = 1, #markerpos, 1 do
 							if(isElement(element["robmarker"..i])) then
 								destroyElement(element["robmarker"..i])
@@ -407,7 +409,7 @@ if pdim == bankdim then
 				sendMSGForFaction ( msg, 10, 200, 200, 0 )
 			end
 			sendMSGForFaction ( msg, robfaction, 0, 150, 0 )
-			outputLog ( "[BANK]: "..getPlayerName(thePlayer).." ("..fraktion..") ueberfaellt die Bank!", "bad")
+			adminLogger:info(getPlayerName(thePlayer).." ("..fraktion..") ueberfaellt die Bank!")
 			for index, player in pairs(getElementsWithinColShape(element["tresorcol"], "player")) do
 				if bombe == "fertig" then
 					outputChatBox("[INFO]: Die Bombe explodiert in 5 Minuten!", player, 200, 200, 0)
@@ -484,7 +486,7 @@ addEventHandler("onPlayerWasted", getRootElement(), function()
 				lostmoney = money
 			end
 			outputChatBox("Du bist gestorben und hast dein erbeutetes Geld ("..lostmoney.."$) verloren!", source, 150, 0, 0)
-			outputLog ( "[BANK]: "..getPlayerName(player).." ist gestorben und hat "..lostmoney.."$ beim Bankueberfall veloren!", "bad")
+			adminLogger:info(getPlayerName(source).." ist gestorben und hat "..lostmoney.."$ beim Bankueberfall veloren!")
 		end
 	end
 end)
@@ -511,7 +513,7 @@ function defusebombend(player)
 				sendMSGForFaction ( msg, 10, 200, 200, 0 )
 			end
 			sendMSGForFaction ( msg, robfaction, 200, 0, 0 )
-			outputLog ( "[BANK]: "..getPlayerName(player).." hat die Bombe erfolgreich entschaerft!", "bad")
+			adminLogger:info(getPlayerName(player).." hat die Bombe erfolgreich entschaerft!")
 			local geld = math.random(5000, 10000)
 			vioSetElementData ( player, "boni", vioGetElementData ( player, "boni" ) + (geld/10) )
 			outputChatBox("Du hast die Bank beschützt! Du kriegst "..(geld/10).."$ Bonus beim nächsten Payday!", player, 0, 150, 0)

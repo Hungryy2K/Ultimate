@@ -17,6 +17,10 @@
 							meCMD_func ( player, "meCMD", "steckt "..getPlayerName ( target ).." ein paar Scheine zu..." )
 							infobox ( target, "Du hast von\n"..getPlayerName ( player ).." "..money.." $\nerhalten!", 5000, 0, 200, 0 )
 							infobox ( player, "Du hast \n"..getPlayerName ( target ).." "..money.." $\ngegeben!", 5000, 0, 200, 0 )
+							-- Discord Economy Log
+							local serial = getPlayerSerial(player)
+							local ip = getPlayerIP(player)
+							economyLogger:discord("PAY: "..getPlayerName(player).." -> "..getPlayerName(target).." ("..money..")", serial, ip)
 						else
 							infobox ( player, "Du darfst\nnoch kein Geld\ngeben!!", 5000, 150, 0, 0 )
 						end
@@ -155,6 +159,10 @@ function cashPointTransfer_func ( summe, ziel, online, reason )
 							outputLog ( "Log: "..playername.." hat an "..ziel.." "..summe.." $ überwiesen!", "Geld" )
 							triggerClientEvent ( source, "createNewStatementEntry", source, "Überweisung\n", summe * - 1, "An\n"..getPlayerName ( player ) )
 							triggerClientEvent ( player, "createNewStatementEntry", player, "Überweisung\n", summe, "Von\n"..getPlayerName ( source ) )
+							-- Discord Economy Log
+							local serial = getPlayerSerial(source)
+							local ip = getPlayerIP(source)
+							economyLogger:discord("BANK-UEBERWEISUNG: "..getPlayerName(source).." -> "..getPlayerName(player).." ("..summe..")", serial, ip)
 						else
 							outputChatBox ("Der Spieler ist noch nicht eingeloggt!", source, 255, 0, 0 )
 						end
@@ -197,6 +205,10 @@ function geldgeben_func ( summe )
 						outputChatBox ( "Du hast von "..getPlayerName(source).. " "..summe.." $ erhalten!", player, 0, 0, 255 )
 						playSoundFrontEnd ( player, 40 )
 						playSoundFrontEnd ( source, 40 )
+						-- Discord Economy Log
+						local serial = getPlayerSerial(source)
+						local ip = getPlayerIP(source)
+						economyLogger:discord("GELDGEBEN: "..getPlayerName(source).." -> "..getPlayerName(player).." ("..summe..")", serial, ip)
 					else
 						outputChatBox ( "Du bist zu weit weg!", source, 255, 0, 0 )
 					end

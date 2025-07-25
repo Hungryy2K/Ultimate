@@ -1,3 +1,8 @@
+-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local adminLogger = Logger:new("Admin")
+local securityLogger = Logger:new("Security")
+local discordLogger = Logger:new("Discord")
+
 fraktionNames = {}
 fraktionNames = { [0] = "Zivilisten", [1]="SFPD", [2]="Cosa Nostra", [3]="Triaden", [4]="Terroristen", [5]="SAN News", [6]="FBI", [7]="Los Aztecas", [8]="Army", [9]="Angels of Death", [10]="Sanitäter", [11]="Mechaniker", [12]="Ballas", [13]="Grove" }
 
@@ -775,556 +780,264 @@ end
 addCommandHandler ( "fskin", fskin_func )
 
 
-function invite_func ( player, cmd, target )
+local fraktionInviteCooldown = {}
+local fraktionUninviteCooldown = {}
+local fraktionBefoerdernCooldown = {}
+local fraktionDegradierenCooldown = {}
 
-	local faction = getPlayerFaction ( player )
-	local rank = getPlayerRank ( player )
+addEvent("fraktion_invite", true)
+addEventHandler("fraktion_invite", root, function(targetName)
+    local player = client or source
+    if fraktionInviteCooldown[player] and getTickCount() - fraktionInviteCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut jemanden einlädst.", true)
+        return
+    end
+    fraktionInviteCooldown[player] = getTickCount()
+    local faction = getPlayerFaction(player)
+    local rank = getPlayerRank(player)
+    if faction ~= 0 and rank >= 4 then
+        local targetpl = findPlayerByName(targetName)
+        if not targetpl then
+            outputNeutralInfo(player, "Ungültiger Spieler!", true)
+            return
+        end
+        if getPlayerFaction(targetpl) == 0 and not isInGang(getPlayerName(targetpl)) then
+            vioSetElementData(targetpl, "fraktion", faction)
+            vioSetElementData(targetpl, "rang", 0)
+            vioSetElementData(targetpl, "FraktionenBetreten", vioGetElementData(targetpl, "FraktionenBetreten") + 1)
+            fraktionMembers[faction][targetpl] = faction
+            fraktionMemberList[faction][getPlayerName(targetpl)] = 0
+            fraktionMemberListInvite[faction][getPlayerName(targetpl)] = timestampOptical()
+            for playeritem, _ in pairs(fraktionMembers[faction]) do
+                triggerClientEvent(playeritem, "syncPlayerList", player, fraktionMemberList[faction], fraktionMemberListInvite[faction])
+            end
+            triggerClientEvent(targetpl, "triggeredBlacklist", targetpl, blacklistPlayers[faction])
+            dbExec(handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical(), "UID", playerUID[getPlayerName(targetpl)])
+            outputNeutralInfo(targetpl, "Du wurdest in eine Fraktion aufgenommen! Tippe /t [Text] für den Chat und F1 für mehr Infos!", false)
+            outputNeutralInfo(player, "Du hast den Spieler eingeladen!", false)
+            adminLogger:info(getPlayerName(player).." hat "..getPlayerName(targetpl).." in die Fraktion aufgenommen.")
+            discordLogger:discord("INVITE: "..getPlayerName(player).." hat "..getPlayerName(targetpl).." in die Fraktion aufgenommen.", getPlayerSerial(player), getPlayerIP(player))
+        else
+            outputNeutralInfo(player, "Der Spieler ist bereits in einer Fraktion oder Gang!", true)
+        end
+    else
+        outputNeutralInfo(player, "Du bist nicht befugt!", true)
+        securityLogger:error("[FRAKTION_INVITE] Unberechtigter Versuch: "..getPlayerName(player))
+    end
+end)
 
-	if faction ~= 0 and rank >= 4 then
-	
-		local target = findPlayerByName( target )
-		
-		if target ~= false then
-		
-			if getPlayerFaction( target ) == 0 then
-			
-				if not isInGang ( getPlayerName ( target ) ) then
-				
-					vioSetElementData ( target, "fraktion", faction )
-					vioSetElementData ( target, "rang", 0 )
-					vioSetElementData ( target, "FraktionenBetreten", vioGetElementData ( target, "FraktionenBetreten" ) + 1 )
-					fraktionMembers[faction][target] = faction
-					if faction == 10 or faction == 11 then
-						fraktionMemberList[10][getPlayerName(target)] = 0
-						fraktionMemberListInvite[10][getPlayerName(target)] = timestampOptical()
-						for playeritem, _ in pairs ( fraktionMembers[10] ) do
-							triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[10], fraktionMemberListInvite[10] )
-						end
-						for playeritem, _ in pairs ( fraktionMembers[11] ) do
-							triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[10], fraktionMemberListInvite[10] )
-						end
-					else
-						fraktionMemberList[faction][getPlayerName(target)] = 0
-						fraktionMemberListInvite[faction][getPlayerName(target)] = timestampOptical()
-						for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-							triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-						end
-					end	
-					triggerClientEvent ( target, "triggeredBlacklist", target, blacklistPlayers[faction] )					
-					
-					dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical(), "UID", playerUID[getPlayerName(target)] )
-					outputChatBox ( "Du wurdest soeben in eine Fraktion aufgenommen! Tippe /t [Text] für den Chat und F1, um mehr zu erfahren!", target, 0, 125, 0 )
-					outputChatBox ( "Du hast den Spieler "..getPlayerName(target).." in deine Fraktion aufgenommen!", player, 0, 125, 0 )
-					if faction == 1 or faction == 6 or faction == 8 then
-						bindKey ( target, "y", "down", "chatbox", "t" )
-					end
-				else
-				
-					infobox ( player, "\n\n\nDer Spieler ist\nin einer Gang!", 5000, 125, 0, 0 )
-					
-				end
-				
-			else
-			
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "Der Spieler ist\nbereits in\neiner Fraktion!", 5000, 125, 0, 0 )
-				
-			end
-			
-		else
-		
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nUngueltiger\nSpieler!", 5000, 125, 0, 0 )
-			
-		end
-		
-	else
-	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )
-		
-	end
-	
+addEvent("fraktion_uninvite", true)
+addEventHandler("fraktion_uninvite", root, function(targetName)
+    local player = client or source
+    if fraktionUninviteCooldown[player] and getTickCount() - fraktionUninviteCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut jemanden entfernst.", true)
+        return
+    end
+    fraktionUninviteCooldown[player] = getTickCount()
+    local faction = getPlayerFaction(player)
+    local rank = getPlayerRank(player)
+    if faction > 0 and rank >= 4 then
+        local target = findPlayerByName(targetName)
+        if not target then
+            outputNeutralInfo(player, "Ungültiger Spieler!", true)
+            return
+        end
+        if getPlayerFaction(target) == faction then
+            vioSetElementData(target, "fraktion", 0)
+            vioSetElementData(target, "rang", 0)
+            fraktionMembers[faction][target] = nil
+            fraktionMemberList[faction][getPlayerName(target)] = nil
+            fraktionMemberListInvite[faction][getPlayerName(target)] = nil
+            for playeritem, _ in pairs(fraktionMembers[faction]) do
+                triggerClientEvent(playeritem, "syncPlayerList", player, fraktionMemberList[faction], fraktionMemberListInvite[faction])
+            end
+            outputNeutralInfo(target, "Du wurdest aus der Fraktion entfernt!", true)
+            outputNeutralInfo(player, "Du hast den Spieler aus der Fraktion entfernt!", false)
+            adminLogger:info(getPlayerName(player).." hat "..getPlayerName(target).." aus der Fraktion entfernt.")
+            discordLogger:discord("UNINVITE: "..getPlayerName(player).." hat "..getPlayerName(target).." aus der Fraktion entfernt.", getPlayerSerial(player), getPlayerIP(player))
+        else
+            outputNeutralInfo(player, "Du kannst den Spieler nicht aus der Fraktion entfernen!", true)
+        end
+    else
+        outputNeutralInfo(player, "Du bist nicht befugt!", true)
+        securityLogger:error("[FRAKTION_UNINVITE] Unberechtigter Versuch: "..getPlayerName(player))
+    end
+end)
+
+addEvent("fraktion_befoerdern", true)
+addEventHandler("fraktion_befoerdern", root, function(targetName, newRank)
+    local player = client or source
+    if fraktionBefoerdernCooldown[player] and getTickCount() - fraktionBefoerdernCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut jemanden beförderst.", true)
+        return
+    end
+    fraktionBefoerdernCooldown[player] = getTickCount()
+    local faction = getPlayerFaction(player)
+    local rank = getPlayerRank(player)
+    if faction > 0 and rank >= 5 then
+        local target = findPlayerByName(targetName)
+        if not target then
+            outputNeutralInfo(player, "Ungültiger Spieler!", true)
+            return
+        end
+        if getPlayerFaction(target) == faction then
+            if tonumber(newRank) and tonumber(newRank) >= 0 and tonumber(newRank) <= 5 then
+                vioSetElementData(target, "rang", tonumber(newRank))
+                outputNeutralInfo(target, "Du wurdest befördert!", false)
+                outputNeutralInfo(player, "Du hast den Spieler befördert!", false)
+                adminLogger:info(getPlayerName(player).." hat "..getPlayerName(target).." auf Rang "..tostring(newRank).." befördert.")
+                discordLogger:discord("BEFOERDERN: "..getPlayerName(player).." hat "..getPlayerName(target).." auf Rang "..tostring(newRank).." befördert.", getPlayerSerial(player), getPlayerIP(player))
+            else
+                outputNeutralInfo(player, "Ungültiger Rang!", true)
+            end
+        else
+            outputNeutralInfo(player, "Der Spieler ist nicht in deiner Fraktion!", true)
+        end
+    else
+        outputNeutralInfo(player, "Du bist nicht befugt!", true)
+        securityLogger:error("[FRAKTION_BEFOERDERN] Unberechtigter Versuch: "..getPlayerName(player))
+    end
+end)
+
+addEvent("fraktion_degradieren", true)
+addEventHandler("fraktion_degradieren", root, function(targetName, newRank)
+    local player = client or source
+    if fraktionDegradierenCooldown[player] and getTickCount() - fraktionDegradierenCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut jemanden degradierst.", true)
+        return
+    end
+    fraktionDegradierenCooldown[player] = getTickCount()
+    local faction = getPlayerFaction(player)
+    local rank = getPlayerRank(player)
+    if faction > 0 and rank >= 5 then
+        local target = findPlayerByName(targetName)
+        if not target then
+            outputNeutralInfo(player, "Ungültiger Spieler!", true)
+            return
+        end
+        if getPlayerFaction(target) == faction then
+            if tonumber(newRank) and tonumber(newRank) >= 0 and tonumber(newRank) <= 5 then
+                vioSetElementData(target, "rang", tonumber(newRank))
+                outputNeutralInfo(target, "Du wurdest degradiert!", false)
+                outputNeutralInfo(player, "Du hast den Spieler degradiert!", false)
+                adminLogger:info(getPlayerName(player).." hat "..getPlayerName(target).." auf Rang "..tostring(newRank).." degradiert.")
+                discordLogger:discord("DEGRADIEREN: "..getPlayerName(player).." hat "..getPlayerName(target).." auf Rang "..tostring(newRank).." degradiert.", getPlayerSerial(player), getPlayerIP(player))
+            else
+                outputNeutralInfo(player, "Ungültiger Rang!", true)
+            end
+        else
+            outputNeutralInfo(player, "Der Spieler ist nicht in deiner Fraktion!", true)
+        end
+    else
+        outputNeutralInfo(player, "Du bist nicht befugt!", true)
+        securityLogger:error("[FRAKTION_DEGRADIEREN] Unberechtigter Versuch: "..getPlayerName(player))
+    end
+end)
+
+function frakpm_func(player, cmd, ...)
+    if frakpmCooldown[player] and getTickCount() - frakpmCooldown[player] < 5000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut eine Fraktionsnachricht sendest.", true)
+        return
+    end
+    frakpmCooldown[player] = getTickCount()
+    local frac = vioGetElementData(player, "fraktion")
+    local rang = vioGetElementData(player, "rang")
+    local pname = getPlayerName(player)
+    if frac > 0 and rang >= 4 then
+        local msg = table.concat({...}, " ")
+        if msg and msg ~= "" then
+            for playeritem, _ in pairs(fraktionMemberList[frac]) do
+                if getPlayerFromName(playeritem) then
+                    outputChatBox(pname..": "..msg, getPlayerFromName(playeritem), 200, 200, 0)
+                else
+                    offlinemsg(msg, pname, playeritem)
+                end
+            end
+            adminLogger:info(getPlayerName(player).." hat eine Fraktionsnachricht gesendet: "..msg)
+            discordLogger:discord("FRAKPM: "..getPlayerName(player).." sagt: "..msg, getPlayerSerial(player), getPlayerIP(player))
+        end
+    else
+        outputNeutralInfo(player, "Du bist nicht befugt!", true)
+    end
 end
-addCommandHandler ( "invite", invite_func )
-
-
-function uninvite_func ( player, cmd, target )
-
-	local faction = getPlayerFaction ( player )
-	local rank = getPlayerRank ( player )
-
-	if faction > 0 and rank >= 4 then
-	
-		local target = findPlayerByName( target )
-		
-		if target ~= false then
-		
-			if (faction == getPlayerFaction( target ) or ( getPlayerFaction( target ) == 10 and faction == 11 ) or ( getPlayerFaction( target ) == 11 and faction == 10 ) ) and getPlayerRank ( target ) <= 4 then
-			
-				local model = malehomeless[math.random ( 1, 5 )]
-				setElementModel ( target, model )
-				vioSetElementData ( target, "skinid", model )
-				if faction == 1 or faction == 6 or faction == 8 then
-					unbindKey ( target, "y", "down", "chatbox" )
-				end
-				vioSetElementData ( target, "rang", 0 )
-				vioSetElementData ( target, "FraktionenVerlassen", vioGetElementData ( target, "FraktionenVerlassen" ) + 1 )
-				fraktionMembers[faction][target] = nil
-				vioSetElementData ( target, "fraktion", 0 )
-				if faction == 10 or faction == 11 then
-					fraktionMemberList[10][getPlayerName(target)] = nil
-					fraktionMemberListInvite[10][getPlayerName(target)] = nil
-					for playeritem, _ in pairs ( fraktionMembers[10] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[10], fraktionMemberListInvite[10] )
-					end
-					for playeritem, _ in pairs ( fraktionMembers[11] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[10], fraktionMemberListInvite[10] )
-					end
-				else
-					fraktionMemberList[faction][getPlayerName(target)] = nil
-					fraktionMemberListInvite[faction][getPlayerName(target)] = nil
-					for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-					end
-				end		
-				outputChatBox ( "Du wurdest soeben aus deiner Fraktion geworfen!", target, 0, 125, 0 )
-				dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical(), "UID", playerUID[getPlayerName(target)] )
-				outputChatBox ( "Du hast den Spieler "..getPlayerName(target).." aus deiner Fraktion entfernt!", player, 0, 125, 0 )
-				
-			else
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "Du kannst den\nSpieler nicht aus\nder Fraktion\nentfernen!", 5000, 125, 0, 0 )
-			end
-			
-		else
-		
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nUngueltiger\nSpieler!", 5000, 125, 0, 0 )
-			
-		end
-		
-	else
-	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )
-		
-	end
-	
-end
-addCommandHandler ( "uninvite", uninvite_func )
-
-
-function getchangestate_func ( player, cmd, target )
-	if playerUID[target] then
-		if vioGetElementData ( player, "adminlvl" ) >= 2 or vioGetElementData ( player, "rang" ) >= 4 then
-			local result = dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "LastFactionChange", "userdata", "UID", playerUID[target] ), -1 )
-			outputChatBox ( "Letzter Fraktions-Uninvite: ".. result[1]["LastFactionChange"] , player, 200, 200, 0 )			
-		else	
-			outputChatBox ( "Du bist kein Admin/Leader/Coleader!", player, 125, 0, 0 )	
-		end
-	else
-		outputChatBox ( "Der Spieler ist nicht online!", player, 125, 0, 0 )
-	end
-end
-addCommandHandler ( "getchangestate", getchangestate_func )
-
-function giverank_func ( player, cmd, target, newrank )
-
-	if newrank then 
-		local newrank = math.abs ( math.floor ( tonumber ( newrank ) ) )
-		local target = findPlayerByName( target )
-		local faction = getPlayerFaction ( player )
-		local rank = getPlayerRank ( player )
-		
-		if target then
-		
-			local targetfaction = getPlayerFaction ( target )
-			local targetrank = getPlayerRank ( target )
-		
-			if faction >= 1 and rank >= 4 and (faction == targetfaction or (faction == 10 and targetfaction == 11) or (faction == 11 and targetfaction == 10)) and rank > newrank and targetrank ~= newrank then
-				if targetrank < rank then
-					if newrank < 5 and newrank >= 0 then
-					
-						if newrank > targetrank then
-						
-							outputChatBox ( "Glückwunsch, du wurdest soeben von "..getPlayerName ( player ).." zum "..factionRankNames[faction][newrank].." befördert!", target, 0, 125, 0 )
-							
-						else
-						
-							outputChatBox ( "Du wurdest soeben von "..getPlayerName ( player ).." zum "..factionRankNames[faction][newrank].." degradiert!", target, 125, 0, 0 )
-							
-						end
-						
-						vioSetElementData ( target, "rang", newrank )
-						if faction == 10 or faction == 11 then
-							fraktionMemberList[10][getPlayerName(target)] = newrank
-							for playeritem, _ in pairs ( fraktionMembers[10] ) do
-								triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[10], fraktionMemberListInvite[10] )
-							end
-							for playeritem, _ in pairs ( fraktionMembers[11] ) do
-								triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[10], fraktionMemberListInvite[10] )
-							end
-						else
-							fraktionMemberList[faction][getPlayerName(target)] = newrank
-							for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-								triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-							end
-						end
-						outputChatBox ( "Du hast "..getPlayerName(target).." soeben Rang "..factionRankNames[faction][newrank].." ( "..newrank.." ) gegeben!", player, 0, 125, 0 )
-						
-					end
-				else
-					triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )
-				end
-				
-			else
-			
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )
-				
-			end
-		
-		else
-		
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nUngueltiger\nSpieler!", 5000, 125, 0, 0 )
-			
-		end
-	else
-		
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "Gebrauch:\n/giverank [Name] [Rang]", 5000, 125, 0, 0 )
-			
-	end
-	
-end
-addCommandHandler ( "giverank", giverank_func )
-
-
-addEvent ( "fraktion_invite", true )
-addEventHandler ( "fraktion_invite", root, function ( target )
-	local faction = getPlayerFaction ( client )
-	local rank = getPlayerRank ( client )
-	if faction ~= 0 and rank >= 5 then
-		local targetpl = findPlayerByName( target )
-		if isElement ( targetpl ) then
-			if getPlayerFaction( targetpl ) == 0 then
-				if not isInGang ( getPlayerName ( targetpl ) ) then	
-					vioSetElementData ( targetpl, "fraktion", faction )
-					vioSetElementData ( targetpl, "rang", 0 )
-					vioSetElementData ( targetpl, "FraktionenBetreten", vioGetElementData ( targetpl, "FraktionenBetreten" ) + 1 )
-					fraktionMembers[faction][targetpl] = faction
-					fraktionMemberList[faction][getPlayerName(targetpl)] = 0
-					fraktionMemberListInvite[faction][getPlayerName(targetpl)] = timestampOptical()
-					for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", client, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-					end
-					triggerClientEvent ( targetpl, "triggeredBlacklist", targetpl, blacklistPlayers[faction] )
-					dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical(), "UID", playerUID[getPlayerName(targetpl)] )
-					outputChatBox ( "Du wurdest soeben in eine Fraktion aufgenommen! Tippe /t [Text] fuer den Chat und F1, um mehr zu erfahren!", targetpl, 0, 125, 0 )
-					outputChatBox ( "Du hast den Spieler "..getPlayerName(targetpl).." in deine Fraktion aufgenommen!", client, 0, 125, 0 )
-				else
-					infobox ( client, "\n\n\nDer Spieler ist\nin einer Gang!", 5000, 125, 0, 0 )	
-				end	
-			else
-				triggerClientEvent ( client, "infobox_start", getRootElement(), "Der Spieler ist\nbereits in\neiner Fraktion!", 5000, 125, 0, 0 )
-			end
-		elseif playerUID[target] then
-			if tonumber ( dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Fraktion", "UID", playerUID[target] ), -1 )[1]["Fraktion"] ) == 0 then
-				if not isInGang ( target ) then
-					outputChatBox ( "Du hast den Spieler "..target.." in deine Fraktion aufgenommen!", client, 0, 125, 0 )
-					offlinemsg ( "Du wurdest von "..getPlayerName(client).." in die Fraktion "..fraktionNames[faction].." aufgenommen!", "Fraktionssystem", target )
-					fraktionMemberList[faction][target] = 0
-					fraktionMemberListInvite[faction][target] = timestampOptical()
-					for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", client, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-					end
-					dbExec ( handler, "UPDATE ?? SET ??=?, ??=? WHERE ??=?", "userdata", "Fraktion", faction, "LastFactionChange", timestampOptical(), "UID", playerUID[target] )
-				else
-					infobox ( client, "\n\n\nDer Spieler ist\nin einer Gang!", 5000, 125, 0, 0 )	
-				end
-			else
-				triggerClientEvent ( client, "infobox_start", getRootElement(), "Der Spieler ist\nbereits in\neiner Fraktion!", 5000, 125, 0, 0 )
-			end
-		else
-			triggerClientEvent ( client, "infobox_start", getRootElement(), "\nUngueltiger\nSpieler!", 5000, 125, 0, 0 )
-		end	
-	else	
-		triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )	
-	end
-end )
-
-
-addEvent ( "fraktion_uninvite", true )
-addEventHandler ( "fraktion_uninvite", root, function ( target )
-	local faction = getPlayerFaction ( client )
-	local rank = getPlayerRank ( client )
-	if faction > 0 and rank >= 5 then
-		local targetpl = findPlayerByName( target )		
-		if isElement ( targetpl ) then		
-			if faction == getPlayerFaction( targetpl ) and getPlayerRank ( targetpl ) <= 4 then			
-				local model = malehomeless[math.random ( 1, 5 )]
-				setElementModel ( targetpl, model )
-				vioSetElementData ( targetpl, "skinid", model )
-				vioSetElementData ( targetpl, "rang", 0 )
-				vioSetElementData ( targetpl, "FraktionenVerlassen", vioGetElementData ( targetpl, "FraktionenVerlassen" ) + 1 )
-				fraktionMembers[faction][targetpl] = nil
-				fraktionMemberList[faction][getPlayerName(targetpl)] = nil
-				fraktionMemberListInvite[faction][getPlayerName(targetpl)] = nil
-				for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-					triggerClientEvent ( playeritem, "syncPlayerList", client, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-				end
-				vioSetElementData ( targetpl, "fraktion", 0 )
-				outputChatBox ( "Du wurdest soeben aus deiner Fraktion geworfen!", targetpl, 0, 125, 0 )
-				dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[getPlayerName(targetpl)] )
-				outputChatBox ( "Du hast den Spieler "..getPlayerName(targetpl).." aus deiner Fraktion entfernt!", client, 0, 125, 0 )				
-			else
-				triggerClientEvent ( client, "infobox_start", getRootElement(), "Du kannst den\nSpieler nicht aus\nder Fraktion\nentfernen!", 5000, 125, 0, 0 )
-			end			
-		elseif playerUID[target] then
-			local result = dbPoll ( dbQuery ( handler, "SELECT ??, ?? FROM ?? WHERE ??=?", "Fraktion", "FraktionsRang", "userdata", "UID", playerUID[target] ), -1 )
-			if result and result[1] and tonumber ( result[1]["Fraktion"] ) == faction then
-				if tonumber ( result[1]["FraktionsRang"] ) <= 4 then
-					dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "Fraktion", 0, "UID", playerUID[target] )
-					outputChatBox ( "Du hast den Spieler "..target.." aus deine Fraktion uninvitet!", client, 0, 125, 0 )
-					offlinemsg ( "Du wurdest von "..getPlayerName(client).." aus der Fraktion "..fraktionNames[faction].." uninvitet!", "Fraktionssystem", target )
-					fraktionMemberList[faction][target] = nil
-					fraktionMemberListInvite[faction][target] = nil
-					for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", client, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-					end
-					dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[target] )
-				else
-					triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDu kannst einen\nLeader nicht uninviten!", 5000, 125, 0, 0 )
-				end
-			else
-				triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDer Spieler ist\nnicht in deiner Fraktion!", 5000, 125, 0, 0 )	
-			end
-		else		
-			triggerClientEvent ( client, "infobox_start", getRootElement(), "\nUngueltiger\nSpieler!", 5000, 125, 0, 0 )			
-		end		
-	else	
-		triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )		
-	end
-end )
-
-
-addEvent ( "fraktion_befoerdern", true )
-addEventHandler ( "fraktion_befoerdern", root, function ( target, newrank )
-	local newrank = math.abs ( math.floor ( tonumber ( newrank ) ) )
-	local faction = getPlayerFaction ( client )
-	local targetpl = findPlayerByName( target )
-	local rank = getPlayerRank ( client )
-	if isElement ( targetpl ) then	
-		local targetrank = getPlayerRank ( targetpl )
-		if targetrank < newrank then 		
-			local targetfaction = getPlayerFaction ( targetpl )	
-			if faction >= 1 and rank >= 4 and faction == targetfaction and rank > newrank then		
-				if newrank < 5 and newrank >= 0 then			
-					outputChatBox ( "Glückwunsch, du wurdest soeben von "..getPlayerName ( client ).." zum "..factionRankNames[faction][newrank].." befördert!", targetpl, 0, 125, 0 )	
-					vioSetElementData ( targetpl, "rang", newrank )
-					fraktionMemberList[faction][getPlayerName(targetpl)] = newrank
-					for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", client, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-					end
-					outputChatBox ( "Du hast "..getPlayerName(targetpl).." soeben Rang "..factionRankNames[faction][newrank].." ( "..newrank.." ) gegeben!", client, 0, 125, 0 )	
-				end
-			else
-				triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )	
-			end
-		else
-			triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDer Rang des\nSpieler ist höher!", 5000, 125, 0, 0 )
-		end
-	elseif playerUID[target] then
-		if rank >= 4 and rank > newrank then
-			local result = dbPoll ( dbQuery ( handler, "SELECT ??, ?? FROM ?? WHERE ??=?", "Fraktion", "FraktionsRang", "userdata", "UID", playerUID[target] ), -1 )
-			if result and result[1] and tonumber ( result[1]["Fraktion"] ) == faction then
-				if tonumber ( result[1]["FraktionsRang"] ) < newrank then
-					dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "FraktionsRang", newrank, "UID", playerUID[target] )
-					outputChatBox ( "Du hast "..target.." soeben Rang "..factionRankNames[faction][newrank].." ( "..newrank.." ) gegeben!", client, 0, 125, 0 )	
-					offlinemsg ( "Glückwunsch, du wurdest soeben von "..getPlayerName ( client ).." zum "..factionRankNames[faction][newrank].." befördert!", "Fraktionssystem", target )
-					fraktionMemberList[faction][target] = newrank
-					for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", client, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-					end
-				else
-					triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDer Rang des\nSpieler ist höher!", 5000, 125, 0, 0 )
-				end
-			else
-				triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDer Spieler ist\nnicht in deiner Fraktion!", 5000, 125, 0, 0 )	
-			end
-		else
-			triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )	
-		end
-	else
-		triggerClientEvent ( client, "infobox_start", getRootElement(), "\nUngueltiger\nSpieler!", 5000, 125, 0, 0 )	
-	end
-end )
-
-
-addEvent ( "fraktion_degradieren", true )
-addEventHandler ( "fraktion_degradieren", root, function ( target, newrank )
-	local newrank = math.abs ( math.floor ( tonumber ( newrank ) ) )
-	local targetpl = findPlayerByName( target )
-	local faction = getPlayerFaction ( client )
-	local rank = getPlayerRank ( client )
-	if isElement ( targetpl ) then	
-		local targetrank = getPlayerRank ( targetpl )
-		if targetrank > newrank then 		
-			local targetfaction = getPlayerFaction ( targetpl )	
-			if faction >= 1 and rank >= 4 and faction == targetfaction and rank > newrank then		
-				if newrank < 5 and newrank >= 0 then			
-					outputChatBox ( "Du wurdest soeben von "..getPlayerName ( client ).." zum "..factionRankNames[faction][newrank].." degradiert!", targetpl, 125, 0, 0 )	
-					vioSetElementData ( targetpl, "rang", newrank )
-					fraktionMemberList[faction][getPlayerName(targetpl)] = newrank
-					for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", client, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-					end
-					outputChatBox ( "Du hast "..getPlayerName(targetpl).." soeben Rang "..factionRankNames[faction][newrank].." ( "..newrank.." ) gegeben!", client, 0, 125, 0 )	
-				end
-			else
-				triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )	
-			end
-		else
-			triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDer Rang des\nSpieler ist niedriger!", 5000, 125, 0, 0 )
-		end
-	elseif playerUID[target] then
-		if rank >= 4 and rank > newrank then
-			local result = dbPoll ( dbQuery ( handler, "SELECT ??, ?? FROM ?? WHERE ??=?", "Fraktion", "FraktionsRang", "userdata", "UID", playerUID[target] ), -1 )
-			if result and result[1] and tonumber ( result[1]["Fraktion"] ) == faction then
-				if tonumber ( result[1]["FraktionsRang"] ) > newrank then
-					dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "FraktionsRang", newrank, "UID", playerUID[target] )
-					outputChatBox ( "Du hast "..target.." soeben Rang "..factionRankNames[faction][newrank].." ( "..newrank.." ) gegeben!", client, 0, 125, 0 )	
-					offlinemsg ( "Du wurdest soeben von "..getPlayerName ( client ).." zum "..factionRankNames[faction][newrank].." degradiert!", "Fraktionssystem", target )
-					fraktionMemberList[faction][target] = newrank
-					for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-						triggerClientEvent ( playeritem, "syncPlayerList", client, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-					end
-				else
-					triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDer Rang des\nSpieler ist niedriger!", 5000, 125, 0, 0 )
-				end
-			else
-				triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDer Spieler ist\nnicht in deiner Fraktion!", 5000, 125, 0, 0 )	
-			end
-		else
-			triggerClientEvent ( client, "infobox_start", getRootElement(), "\nDu bist nicht\nbefugt!", 5000, 125, 0, 0 )	
-		end
-	else
-		triggerClientEvent ( client, "infobox_start", getRootElement(), "\nUngueltiger\nSpieler!", 5000, 125, 0, 0 )	
-	end
-end )
-
-
-function selbstUninvite ( player )
-	local faction = getPlayerFaction ( player )
-	local rank = getPlayerRank ( player )
-	if faction > 0 and rank < 5 then
-		local model = malehomeless[math.random ( 1, 5 )]
-		setElementModel ( player, model )
-		vioSetElementData ( player, "skinid", model )
-		vioSetElementData ( player, "rang", 0 )
-		fraktionMembers[faction][player] = nil
-		fraktionMemberList[faction][getPlayerName(player)] = nil
-		fraktionMemberListInvite[faction][getPlayerName(player)] = nil
-		vioSetElementData ( player, "fraktion", 0 )
-		vioSetElementData ( player, "FraktionenVerlassen", vioGetElementData ( player, "FraktionenVerlassen" ) + 1 )
-		for playeritem, _ in pairs ( fraktionMembers[faction] ) do
-			triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[faction], fraktionMemberListInvite[faction] )
-		end
-		outputChatBox ( "Du hast dich soeben aus der Fraktion uninvitet!", player, 0, 125, 0 )
-		dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[getPlayerName(player)] )
-		for member, rank in pairs (fraktionMemberList[faction]) do
-			if rank >= 4 then
-				if getPlayerFromName ( member ) then
-					outputChatBox ( "Der Spieler "..getPlayerName(player).." hat sich selbst uninvitet!", getPlayerFromName ( member ), 200, 200, 200 )
-				else
-					offlinemsg ( "Der Spieler "..getPlayerName(player).." hat sich selbst uninvitet!", "Fraktion", member )
-				end
-			end
-		end
-	else
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist\nals Leader nicht\nbefugt!", 5000, 125, 0, 0 )
-	end
-end
-addCommandHandler ("selfuninvite", selbstUninvite)
-
 
 function frespawn ( player )
-	local frac = getPlayerFaction ( player )
-	local rank = getPlayerRank ( player )
-	if frac then
-		if frac > 0 then
-			if rank >= 2 then
-				if not isTimer ( frespawnTimer[frac] ) then
-					zaehlerFrespawnTimer[frac] = 0
-					sendMSGForFaction ("Countdown zum Fraktionsrespawn wurde von "..getPlayerName(player).. " gestartet. Benutze /stopfrespawn zum Stoppen!", frac, 0, 0, 155)
-					frespawnTimer[frac] = setTimer (frespawnCountdown, 1000, 10, player)
-					addCommandHandler ("stopfrespawn", stopFrespawnCountdown)
-				else
-					triggerClientEvent ( player, "infobox_start", getRootElement(), "\nEs läuft schon\nein Frespawn\n-Countdown!", 5000, 125, 0, 0 )
-				end
-			else
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "\nErst ab\nRang 3!", 5000, 125, 0, 0 )
-			end
-		else
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist in\nkeiner Fraktion!", 5000, 125, 0, 0 )
-		end	
-	else	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist in\nkeiner Fraktion!", 5000, 125, 0, 0 )
-	end
-end
-addCommandHandler ( "frespawn", frespawn )
-
-
-function frespawnCountdown ( player )
-	local frac = getPlayerFaction ( player )
-	zaehlerFrespawnTimer[frac] = zaehlerFrespawnTimer[frac] + 1
-	if zaehlerFrespawnTimer[frac] == 10 then
-		sendMSGForFaction ("Wird durchgeführt ..", frac, 0, 155, 0)
-		startFrespawn ( player )
-	elseif zaehlerFrespawnTimer[frac] == 5 then
-		sendMSGForFaction ("Noch 5 Sekunden!", frac, 0, 155, 0)
-	elseif zaehlerFrespawnTimer[frac] >= 7 then
-		sendMSGForFaction (10-zaehlerFrespawnTimer[frac].." ..", frac, 0, 155, 0)
-	end		
+    if frespawnCooldown[player] and getTickCount() - frespawnCooldown[player] < 30000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut einen Fraktionsrespawn startest.", true)
+        return
+    end
+    frespawnCooldown[player] = getTickCount()
+    local frac = getPlayerFaction ( player )
+    local rank = getPlayerRank ( player )
+    if frac and frac > 0 and rank >= 2 then
+        if not isTimer(frespawnTimer[frac]) then
+            zaehlerFrespawnTimer[frac] = 0
+            sendMSGForFaction("Countdown zum Fraktionsrespawn wurde von "..getPlayerName(player).." gestartet. Benutze /stopfrespawn zum Stoppen!", frac, 0, 0, 155)
+            frespawnTimer[frac] = setTimer(frespawnCountdown, 1000, 10, player)
+            addCommandHandler("stopfrespawn", stopFrespawnCountdown)
+            adminLogger:info(getPlayerName(player).." hat einen Fraktionsrespawn gestartet.")
+            discordLogger:discord("FRESPAWN: "..getPlayerName(player).." hat einen Fraktionsrespawn gestartet.", getPlayerSerial(player), getPlayerIP(player))
+        else
+            outputNeutralInfo(player, "Es läuft schon ein Frespawn-Countdown!", true)
+        end
+    else
+        outputNeutralInfo(player, "Du bist nicht befugt!", true)
+    end
 end
 
-function startFrespawn ( player )
-	frespawnTimer[getPlayerFaction ( player )] = nil
-	local frac = vioGetElementData ( player, "fraktion" )
-	
-	for veh in pairs(factionVehicles[frac]) do
-		if not getVehicleOccupant(veh) and (not isEvilFaction(frac) or getElementDimension(veh) ~= diegangwardimension) then 
-			respawnVehicle ( veh )
-			setElementFrozen ( veh, true )
-		end 
-	end 
+function selbstUninvite ( player )
+    if selfuninviteCooldown[player] and getTickCount() - selfuninviteCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du dich erneut selbst uninviten kannst.", true)
+        return
+    end
+    selfuninviteCooldown[player] = getTickCount()
+    local faction = getPlayerFaction ( player )
+    local rank = getPlayerRank ( player )
+    if faction > 0 and rank < 5 then
+        vioSetElementData(player, "fraktion", 0)
+        vioSetElementData(player, "rang", 0)
+        fraktionMembers[faction][player] = nil
+        fraktionMemberList[faction][getPlayerName(player)] = nil
+        fraktionMemberListInvite[faction][getPlayerName(player)] = nil
+        for playeritem, _ in pairs(fraktionMembers[faction]) do
+            triggerClientEvent(playeritem, "syncPlayerList", player, fraktionMemberList[faction], fraktionMemberListInvite[faction])
+        end
+        outputNeutralInfo(player, "Du hast dich selbst uninvitet!", false)
+        dbExec(handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical(), "UID", playerUID[getPlayerName(player)])
+        adminLogger:info(getPlayerName(player).." hat sich selbst uninvitet.")
+        discordLogger:discord("SELFUNINVITE: "..getPlayerName(player).." hat sich selbst uninvitet.", getPlayerSerial(player), getPlayerIP(player))
+    else
+        outputNeutralInfo(player, "Du bist als Leader nicht befugt!", true)
+    end
 end
-
-
-function stopFrespawnCountdown ( player )
-	local frac = getPlayerFaction ( player )
-	if frac then
-		if frac > 0 then
-			if frespawnTimer[frac] then
-				if isTimer(frespawnTimer[frac]) then
-					killTimer(frespawnTimer[frac])
-					frespawnTimer[frac] = nil
-					sendMSGForFaction ("Fraktions-Respawn abgebrochen durch "..getPlayerName(player), frac, 155, 0, 0)
-				end
-			end
-		end
-	end
-end
-
 
 function allowFSkinFunction ( player )
-	if vioGetElementData ( player, "fraktion" ) == 1 and vioGetElementData ( player, "rang" ) >= 4 then
-		if not allowToChangeSkin then
-			allowToChangeSkin = true
-			sendMSGForFaction ( "/fskin wurde für zwei Minuten aktiviert!", 1, 0, 200, 0 )
-			allowToChangeSkinTimer = setTimer ( allowFSkinFunction, 2 * 60 * 1000, 1, player )
-		else
-			allowToChangeSkin = false
-			sendMSGForFaction ( "/fskin wurde wieder deaktiviert!", 1, 200, 0, 0 )
-			if isTimer ( allowToChangeSkinTimer ) then
-				killTimer ( allowToChangeSkinTimer )
-			end
-		end
-	end
+    if allowfskinCooldown[player] and getTickCount() - allowfskinCooldown[player] < 60000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut /allowfskin benutzt.", true)
+        return
+    end
+    allowfskinCooldown[player] = getTickCount()
+    if vioGetElementData(player, "fraktion") == 1 and vioGetElementData(player, "rang") >= 4 then
+        if not allowToChangeSkin then
+            allowToChangeSkin = true
+            sendMSGForFaction("/fskin wurde für zwei Minuten aktiviert!", 1, 0, 200, 0)
+            allowToChangeSkinTimer = setTimer(allowFSkinFunction, 2 * 60 * 1000, 1, player)
+            adminLogger:info(getPlayerName(player).." hat /allowfskin aktiviert.")
+            discordLogger:discord("ALLOWFSKIN: "..getPlayerName(player).." hat /allowfskin aktiviert.", getPlayerSerial(player), getPlayerIP(player))
+        else
+            allowToChangeSkin = false
+            sendMSGForFaction("/fskin wurde wieder deaktiviert!", 1, 200, 0, 0)
+            if isTimer(allowToChangeSkinTimer) then
+                killTimer(allowToChangeSkinTimer)
+            end
+            adminLogger:info(getPlayerName(player).." hat /allowfskin deaktiviert.")
+            discordLogger:discord("ALLOWFSKIN: "..getPlayerName(player).." hat /allowfskin deaktiviert.", getPlayerSerial(player), getPlayerIP(player))
+        end
+    else
+        outputNeutralInfo(player, "Du bist nicht befugt!", true)
+    end
 end
+
 addCommandHandler ( "allowfskin", allowFSkinFunction )
 				
 				

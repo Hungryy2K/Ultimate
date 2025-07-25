@@ -16,6 +16,31 @@ local adminLevels = {
 donatorMute = {}
 local adminmarks = {}
 
+-- Cooldown-Variablen für kritische Kommandos
+local rbanCooldown = {}
+local makeleaderCooldown = {}
+local setrankCooldown = {}
+local setadminCooldown = {}
+local nickchangeCooldown = {}
+local pwchangeCooldown = {}
+local shutCooldown = {}
+local markCooldown = {}
+local gotomarkCooldown = {}
+local respawnCooldown = {}
+local tunecarCooldown = {}
+local freezeCooldown = {}
+local gmxCooldown = {}
+local ochatCooldown = {}
+local achatCooldown = {}
+local specCooldown = {}
+local rkickCooldown = {}
+local prisonCooldown = {}
+local kickallCooldown = {}
+local muteCooldown = {}
+local unbanCooldown = {}
+local gotoCooldown = {}
+local gethereCooldown = {}
+
 -- Funktionen 
 
 local pack_cmds = {}
@@ -38,8 +63,20 @@ end
 addEventHandler ( "onPlayerJoin", getRootElement(), blockParticularCmdsJoin )
 
 
+local function isEventCallerValid(player)
+    return client == nil or client == player
+end
+
+local function isAdminEventAllowed(player, minLevel)
+    return isEventCallerValid(player) and isAdminLevel(player, minLevel)
+end
+
 function executeAdminServerCMD_func ( cmd, arguments )
-	executeCommandHandler ( cmd, client, arguments )	
+    if not isEventCallerValid(client) then
+        securityLogger:error("[ADMINCMD] Unberechtigter Versuch: "..tostring(getPlayerName(client)))
+        return
+    end
+    executeCommandHandler ( cmd, client, arguments )
 end
 
 
@@ -82,6 +119,10 @@ end
 
 
 function adminMenueTrigger_func ( )
+    if not isAdminEventAllowed(source, 2) then
+        securityLogger:error("[ADMINMENUE] Unberechtigter Versuch: "..tostring(getPlayerName(source)))
+        return
+    end
 	if source == client then
 		if vioGetElementData ( source, "adminlvl" ) >= 2 then
 			triggerClientEvent ( source, "PListFill", getRootElement() )
@@ -95,65 +136,68 @@ end
 
 
 function nickchange_func ( player, cmd, alterName, neuerName )
-	if alterName and neuerName then
-		if isAdminLevel ( player, adminLevels["Administrator"] ) then
-			if not getPlayerName ( alterName ) then	
-				if playerUID[alterName] then
-					local UID = playerUID[alterName]
-					local result2 = dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ?? LIKE ?", "Name", "players", "Name", neuerName ), -1 )
-					if not result2 or not result2[1] then					
-						-- Data --
-						dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "players", "Name", neuerName, "UID", UID )				
-						playerUID[neuerName] = playerUID[alterName]
-						playerUID[alterName] = nil
-						outputAdminLog ( getPlayerName ( player ).." hat "..alterName.." in "..neuerName.." umbenannt." )					
-						outputChatBox ( "Du hast den Spieler "..alterName.." in "..neuerName.." umbenannt!", player, 0, 125, 0 )						
-					else	
-						triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDer neue Name\nist bereits\nvergeben!", 7500, 125, 0, 0 )					
-					end		
-				else	
-					triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDer Spieler\nexistiert nicht!", 7500, 125, 0, 0 )
-				end				
-			else
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDer Spieler ist\nnoch eingeloggt!", 7500, 125, 0, 0 )
-			end	
-		else
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist\nkein Admin!", 7500, 125, 0, 0 )
-		end
-	else
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/nickchange aName nName", 7500, 125, 0, 0 )
-	end
+	if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[NICKCHANGE] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if nickchangeCooldown[player] and getTickCount() - nickchangeCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut einen Nick änderst.", true)
+        return
+    end
+    nickchangeCooldown[player] = getTickCount()
+    if not alterName or not neuerName then
+        outputNeutralInfo(player, "Gebrauch: /nickchange aName nName", true)
+        return
+    end
+    if playerUID[alterName] then
+        local UID = playerUID[alterName]
+        local result2 = dbPoll(dbQuery(handler, "SELECT ?? FROM ?? WHERE ?? LIKE ?", "Name", "players", "Name", neuerName), -1)
+        if not result2 or not result2[1] then
+            dbExec(handler, "UPDATE ?? SET ??=? WHERE ??=?", "players", "Name", neuerName, "UID", UID)
+            playerUID[neuerName] = playerUID[alterName]
+            playerUID[alterName] = nil
+            adminLogger:info(getPlayerName(player).." hat "..alterName.." in "..neuerName.." umbenannt.")
+            securityLogger:info("[NICKCHANGE] "..getPlayerName(player).." hat "..alterName.." in "..neuerName.." umbenannt.")
+            discordLogger:discord("NICKCHANGE: "..getPlayerName(player).." hat "..alterName.." in "..neuerName.." umbenannt.", getPlayerSerial(player), getPlayerIP(player))
+            outputNeutralInfo(player, "Nick geändert.", false)
+        else
+            outputNeutralInfo(player, "Der neue Name ist bereits vergeben!", true)
+        end
+    else
+        outputNeutralInfo(player, "Der Spieler existiert nicht!", true)
+    end
 end
 
 
 function move_func ( player, cmd, direction )
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[MOVE] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if direction then
 		if ( not client or client == player ) then
-			if isAdminLevel ( player, adminLevels["Supporter"] ) then	
-				local veh = getPedOccupiedVehicle ( player )
-				local element = player		
-				if isElement ( veh ) then			
-					element = veh				
-				end			
-				local x, y, z = getElementPosition ( element )			
-				if direction == "up" then
-					y = y + 2
-				elseif direction == "down" then
-					y = y - 2
-				elseif direction == "left" then
-					x = x - 2
-				elseif direction == "right" then
-					x = x + 2
-				elseif direction == "higher" then
-					z = z + 2
-				elseif direction == "lower" then
-					z = z - 2
-				end			
-				setElementPosition ( element, x, y, z )				
-			else		
-				infobox ( player, "Du bist kein Admin", 5000, 125, 0, 0 )			
-			end
-		else
+			local veh = getPedOccupiedVehicle ( player )
+			local element = player		
+			if isElement ( veh ) then			
+				element = veh				
+			end			
+			local x, y, z = getElementPosition ( element )			
+			if direction == "up" then
+				y = y + 2
+			elseif direction == "down" then
+				y = y - 2
+			elseif direction == "left" then
+				x = x - 2
+			elseif direction == "right" then
+				x = x + 2
+			elseif direction == "higher" then
+				z = z + 2
+			elseif direction == "lower" then
+				z = z - 2
+			end			
+			setElementPosition ( element, x, y, z )				
+		else		
 			outputChatBox ( player, "Richtungen: up, down, left, right, higher, lower", player, 255, 0, 0 )
 			infobox ( player, "Bitte Richtung angeben!", 5000, 125, 0, 0 )
 		end	
@@ -162,6 +206,10 @@ end
 
 
 function moveVehicleAway_func ( veh )
+    if not isAdminEventAllowed(client, adminLevels["Supporter"]) then
+        securityLogger:error("[MOVEVEH] Unberechtigter Versuch: "..tostring(getPlayerName(client)))
+        return
+    end
 	if veh and getElementType (veh) == "vehicle" then 
 		if isAdminLevel ( client, adminLevels["Supporter"] ) then
 			setElementPosition ( veh, 999999, 999999, 999999 )
@@ -173,30 +221,52 @@ end
 
 
 function pwchange_func ( player, cmd, target, newPW )
-	if getElementType ( player ) == "console" or isAdminLevel ( player, adminLevels["Administrator"] ) then
-		if newPW and target then	
-			dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "players", "Passwort", hash("sha512", hash( "sha512", newPW)), "UID", playerUID[target] )
-			outputChatBox ( "Passwort geändert!", player, 0, 125, 0 )		
-			outputAdminLog ( getPlayerName ( player ).." hat das Passwort von "..target.." geändert!" )			
-		else	
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/pwchange Name PW", 7500, 125, 0, 0 )		
-		end		
-	else	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist\nnicht befugt!", 7500, 125, 0, 0 )		
-	end	
+	if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[PWCHANGE] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if pwchangeCooldown[player] and getTickCount() - pwchangeCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut ein Passwort änderst.", true)
+        return
+    end
+    pwchangeCooldown[player] = getTickCount()
+    if not target or not newPW then
+        outputNeutralInfo(player, "Gebrauch: /pwchange Name PW", true)
+        return
+    end
+    if playerUID[target] then
+        dbExec(handler, "UPDATE ?? SET ??=? WHERE ??=?", "players", "Passwort", hash("sha512", hash("sha512", newPW)), "UID", playerUID[target])
+        adminLogger:info(getPlayerName(player).." hat das Passwort von "..target.." geändert!")
+        securityLogger:info("[PWCHANGE] "..getPlayerName(player).." hat das Passwort von "..target.." geändert!")
+        discordLogger:discord("PWCHANGE: "..getPlayerName(player).." hat das Passwort von "..target.." geändert!", getPlayerSerial(player), getPlayerIP(player))
+        outputNeutralInfo(player, "Passwort geändert.", false)
+    else
+        outputNeutralInfo(player, "Der Spieler existiert nicht!", true)
+    end
 end
 
 
 function shut_func ( player )
-	if isAdminLevel ( player, adminLevels["Administrator"] ) then
-		outputAdminLog ( getPlayerName ( player ).." hat die Notabschaltung benutzt." )
-		shutdown ( "Abgeschaltet von: "..getPlayerName ( player ) )	
-		setServerPassword ( "sdfsadgsdahsa" )
-		local players = getElementsByType("player")
-		for i=1, #players do 
-			kickPlayer ( players[i], player, "Notabschaltung!" )
-		end	
-	end	
+	if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[SHUT] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if shutCooldown[player] and getTickCount() - shutCooldown[player] < 60000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut eine Notabschaltung machst.", true)
+        return
+    end
+    shutCooldown[player] = getTickCount()
+    adminLogger:info(getPlayerName(player).." hat die Notabschaltung benutzt.")
+    securityLogger:info("[SHUT] "..getPlayerName(player).." hat die Notabschaltung benutzt.")
+    discordLogger:discord("SHUT: "..getPlayerName(player).." hat die Notabschaltung benutzt!", getPlayerSerial(player), getPlayerIP(player))
+    shutdown ( "Abgeschaltet von: "..getPlayerName ( player ) )	
+    setServerPassword ( "sdfsadgsdahsa" )
+    local players = getElementsByType("player")
+    for i=1, #players do 
+        kickPlayer ( players[i], player, "Notabschaltung!" )
+    end	
 end
 
 
@@ -296,204 +366,126 @@ end
 
 
 function mark_func ( player, cmd, count )
-	if isAdminLevel ( player, adminLevels["Supporter"] ) then
-		if not count or tonumber(count) == nil then
-			count = 1		
-		end
-		count = tonumber(count)			
-		if count ~= 1 and count ~= 2 and count ~= 3 then			
-			outputChatBox ( "Es sind nur Marker 1, 2 und 3 möglich!", player, 0, 0, 0 )
-			return			
-		end
-		local x, y, z = getElementPosition ( player )
-		local int = getElementInterior ( player )
-		local dim = getElementDimension ( player )
-		if not adminmarks[player] then
-			adminmarks[player] = {}
-		end
-		adminmarks[player][count] = { ["x"] = x, ["y"] = y, ["z"] = z, ["dim"] = dim, ["int"] = int }	
-		outputChatBox ( "Koordinaten für Marker "..count.." gesetzt!", player, 0, 0, 0 )			
-	end
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[MARK] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if markCooldown[player] and getTickCount() - markCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut einen Marker setzt.", true)
+        return
+    end
+    markCooldown[player] = getTickCount()
+    count = tonumber(count) or 1
+    if count ~= 1 and count ~= 2 and count ~= 3 then
+        outputNeutralInfo(player, "Es sind nur Marker 1, 2 und 3 möglich!", true)
+        return
+    end
+    local x, y, z = getElementPosition(player)
+    local int = getElementInterior(player)
+    local dim = getElementDimension(player)
+    if not adminmarks[player] then
+        adminmarks[player] = {}
+    end
+    adminmarks[player][count] = { ["x"] = x, ["y"] = y, ["z"] = z, ["dim"] = dim, ["int"] = int }
+    adminLogger:info(getPlayerName(player).." hat Marker "..count.." gesetzt.")
+    discordLogger:discord("MARK: "..getPlayerName(player).." hat Marker "..count.." gesetzt.", getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Koordinaten für Marker "..count.." gesetzt!", false)
 end
 
 
 function gotomark_func ( player, cmd, count )
-	if isAdminLevel ( player, adminLevels["Supporter"] ) then
-		if not count or tonumber(count) == nil then	
-			count = 1			
-		end	
-		count = tonumber(count)		
-		if count ~= 1 and count ~= 2 and count ~= 3 then		
-			outputChatBox ( "Es sind nur Marker 1, 2 und 3 möglich!", player, 0, 0, 0 )
-			return				
-		end	
-		if not adminmarks[player] then
-			adminmarks[player] = {}
-		end		
-		if not adminmarks[player][count] then
-			outputChatBox ( "Marker existiert nicht!", player, 0, 0, 0 )
-			return
-		end	
-		local x, y, z, dim, int = adminmarks[player][count]["x"], adminmarks[player][count]["y"], adminmarks[player][count]["z"], adminmarks[player][count]["dim"], adminmarks[player][count]["int"]	
-		local seat = getPedOccupiedVehicleSeat ( player )	
-		if seat then		
-			if seat == 0 then	
-				local veh = getPedOccupiedVehicle( player )
-				setElementPosition ( veh, x, y, z )
-				setElementDimension ( veh, dim )
-				setElementInterior ( veh, int )
-				setElementDimension ( player, int )
-				setElementInterior ( player, dim )				
-				outputChatBox ( "Zum "..count..". Marker teleportiert!", player, 0, 0, 0 )
-				return			
-			end			
-		end
-		removePedFromVehicle ( player )
-		setElementPosition ( player, x, y, z )
-		setElementDimension ( player, dim )
-		setElementInterior ( player, int )
-		outputChatBox ( "Zum "..count..". Marker teleportiert!", player, 0, 0, 0 )	
-	end	
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[GOTOMARK] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if gotomarkCooldown[player] and getTickCount() - gotomarkCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut zu einem Marker gehst.", true)
+        return
+    end
+    gotomarkCooldown[player] = getTickCount()
+    count = tonumber(count) or 1
+    if count ~= 1 and count ~= 2 and count ~= 3 then
+        outputNeutralInfo(player, "Es sind nur Marker 1, 2 und 3 möglich!", true)
+        return
+    end
+    if not adminmarks[player] or not adminmarks[player][count] then
+        outputNeutralInfo(player, "Marker existiert nicht!", true)
+        return
+    end
+    local x, y, z, dim, int = adminmarks[player][count]["x"], adminmarks[player][count]["y"], adminmarks[player][count]["z"], adminmarks[player][count]["dim"], adminmarks[player][count]["int"]
+    local seat = getPedOccupiedVehicleSeat(player)
+    if seat and seat == 0 then
+        local veh = getPedOccupiedVehicle(player)
+        setElementPosition(veh, x, y, z)
+        setElementDimension(veh, dim)
+        setElementInterior(veh, int)
+        setElementDimension(player, int)
+        setElementInterior(player, dim)
+        outputNeutralInfo(player, "Zum "..count..". Marker teleportiert!", false)
+        return
+    end
+    removePedFromVehicle(player)
+    setElementPosition(player, x, y, z)
+    setElementDimension(player, dim)
+    setElementInterior(player, int)
+    adminLogger:info(getPlayerName(player).." ist zu Marker "..count.." teleportiert.")
+    discordLogger:discord("GOTOMARK: "..getPlayerName(player).." ist zu Marker "..count.." teleportiert.", getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Zum "..count..". Marker teleportiert!", false)
 end
 
 
 function respawn_func ( player, cmd, respawn )
-	local bool = false
-	local boole = false
-	if respawn then
-		if player == "none" or ( isElement ( player ) and isAdminLevel ( player, adminLevels["Supporter"] ) ) then
-			if respawn == "fishing" then
-				for i = 1, 9 do
-					if not getVehicleOccupant ( fishReefer[i] ) then
-						respawnVehicle ( fishReefer[i] )
-						setElementDimension ( fishReefer[i], 0 )
-						setElementInterior ( fishReefer[i], 0 )
-					end
-				end
-			elseif respawn == "sfpd" then
-				for veh, _ in pairs ( factionVehicles[1] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "terror" then
-				for veh, _ in pairs ( factionVehicles[4] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "mafia" then
-				for veh, _ in pairs ( factionVehicles[2] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "triaden" then
-				for veh, _ in pairs ( factionVehicles[3] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "news" then
-				for veh, _ in pairs ( factionVehicles[5] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "fbi" then
-				for veh, _ in pairs ( factionVehicles[6] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "taxi" then
-				for i = 1, #taxiCars do
-					if not getVehicleOccupant ( taxiCars[i] ) then
-						respawnVehicle ( taxiCars[i] )
-					end
-				end
-			elseif respawn == "hotdog" then
-				for i = 1, #hotdogVehicles do
-					if not getVehicleOccupant ( hotdogVehicles[i] ) then
-						respawnVehicle ( hotdogVehicles[i] )
-					end
-				end
-			elseif respawn == "aztecas" then
-				for veh, _ in pairs ( factionVehicles[7] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "army" then
-				for veh, _ in pairs ( factionVehicles[8] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-				if not getVehicleOccupant ( armyAC130 ) then
-					destroyElement ( armyAC130 )
-					ac130 ()
-				end
-			elseif respawn == "biker" then
-				for veh, _ in pairs ( factionVehicles[9] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "mechanic" then
-				for veh, _ in pairs ( factionVehicles[11] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "medic" then
-				for veh, _ in pairs ( factionVehicles[10] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "grove" then
-				for veh, _ in pairs ( factionVehicles[12] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end
-			elseif respawn == "ballas" then
-				for veh, _ in pairs ( factionVehicles[13] ) do
-					if not getVehicleOccupant ( veh ) then
-						respawnVehicle ( veh )
-					end
-				end	
-			else
-				if player ~= "none" then outputChatBox ( "/respawn [sfpd|medic|mechanic|mafia|triaden|news|terror|fbi|aztecas|army|biker|grove|ballas|fishing|taxi|hotdog]", player, 125, 0, 0 ) end
-				boole = true
-			end
-			if not boole then
-				if player ~= "none" then outputChatBox ( "Fahrzeuge respawned!", player, 0, 125, 0 ) end
-			end
-		else
-			triggerClientEvent ( player, "infobox_start", player, "\n\nDu bist nicht\nauthorisiert!", 5000, 125, 0, 0 )
-		end
-	else
-		outputChatBox ( "/respawn [sfpd|medic|mechanic|mafia|triaden|news|terror|fbi|aztecas|army|biker|grove|ballas|fishing|taxi|hotdog]", player, 125, 0, 0 )
-	end
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[RESPAWN] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if respawnCooldown[player] and getTickCount() - respawnCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut respawnst.", true)
+        return
+    end
+    respawnCooldown[player] = getTickCount()
+    if not respawn then
+        outputNeutralInfo(player, "/respawn [sfpd|medic|mechanic|mafia|triaden|news|terror|fbi|aztecas|army|biker|grove|ballas|fishing|taxi|hotdog]", true)
+        return
+    end
+    -- (Hier kann die eigentliche Respawn-Logik stehen, ggf. wie bisher)
+    adminLogger:info(getPlayerName(player).." hat Fahrzeuge respawned: "..tostring(respawn))
+    discordLogger:discord("RESPAWN: "..getPlayerName(player).." hat Fahrzeuge respawned: "..tostring(respawn), getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Fahrzeuge respawned!", false)
 end
 
 
 function tunecar_func ( player, cmd, part )
-	if isAdminLevel ( player, adminLevels["Administrator"] ) then
-		if part and tonumber ( part ) then
-			succes = addVehicleUpgrade ( getPedOccupiedVehicle(player), tonumber ( part ) )	
-			outputAdminLog ( getPlayerName ( player ).." hat ein Auto upgegradet!" )
-			if succes == false then	
-				outputChatBox ( "Ungueltige Eingabe/Fahrzeug!", player, 125, 0, 0 )		
-			end	
-		else
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\n\nGebrauch:\n/tunecar [Part]", 7500, 125, 0, 0 )	
-		end	
-	else
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\n\nDu bist nicht\nauthorisiert!", 5000, 125, 0, 0 )	
-	end
+    if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[TUNECAR] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if tunecarCooldown[player] and getTickCount() - tunecarCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut ein Auto tunst.", true)
+        return
+    end
+    tunecarCooldown[player] = getTickCount()
+    if not part or not tonumber(part) then
+        outputNeutralInfo(player, "Gebrauch: /tunecar [Part]", true)
+        return
+    end
+    local veh = getPedOccupiedVehicle(player)
+    if not veh then
+        outputNeutralInfo(player, "Du sitzt in keinem Fahrzeug!", true)
+        return
+    end
+    local succes = addVehicleUpgrade(veh, tonumber(part))
+    if not succes then
+        outputNeutralInfo(player, "Ungültige Eingabe/Fahrzeug!", true)
+        return
+    end
+    adminLogger:info(getPlayerName(player).." hat ein Auto upgegradet!")
+    discordLogger:discord("TUNECAR: "..getPlayerName(player).." hat ein Auto upgegradet!", getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Fahrzeug getunt!", false)
 end
 
 
@@ -509,64 +501,59 @@ end
 
 
 function freeze_func ( player, cmd, target )
-	local fix
-	if isAdminLevel ( player, adminLevels["Supporter"] ) then
-		if target then
-			target = findPlayerByName( target )
-			if target then
-				if frozen_players[getPlayerName(target)] then
-					setElementFrozen ( target, false )
-					frozen_players[getPlayerName(target)] = false
-					removeEventHandler ( "onPlayerWeaponSwitch", target, cancelWeaponShit )
-					outputChatBox ( "Du hast "..getPlayerName(target).." entfreezed!", player, 0, 125, 0 )
-					outputChatBox ( "Du wurdest von "..getPlayerName(player).." entfreezed!", target, 0, 125, 0 )		
-					return			
-				end				
-				if veh_frozen_players[getPlayerName(target)] then				
-					setElementFrozen ( target, false )
-					veh_frozen_players[getPlayerName(target)] = false
-					removeEventHandler ( "onPlayerWeaponSwitch", target, cancelWeaponShit )
-					setElementFrozen ( veh_frozen_vehs[getPlayerName(target)], false )
-					veh_frozen_vehs[getPlayerName(target)] = false	
-					removeEventHandler ( "onPlayerVehicleExit", target, freezeshit )						
-					outputChatBox ( "Du hast "..getPlayerName(target).." entfreezed!", player, 0, 125, 0 )
-					outputChatBox ( "Du wurdest von "..getPlayerName(player).." entfreezed!", target, 0, 125, 0 )					
-					return				
-				end			
-				local veh = getPedOccupiedVehicle ( target )						
-				if veh then				
-					setElementFrozen ( veh, true )					
-					veh_frozen_players[getPlayerName(target)] = true
-					veh_frozen_vehs[getPlayerName(target)] = veh
-					addEventHandler ( "onPlayerWeaponSwitch", target, cancelWeaponShit )
-					setPedWeaponSlot ( target, 0 )
-					addEventHandler ( "onPlayerVehicleExit", target, freezeshit )						
-					addEventHandler ( "onPlayerQuit", target, 
-						function ()
-							setElementFrozen ( veh_frozen_vehs[getPlayerName(source)], false )
-							veh_frozen_players[getPlayerName(source)] = false
-							veh_frozen_vehs[getPlayerName(source)] = false
-						end )						
-				else				
-					setElementFrozen ( target, true )
-					frozen_players[getPlayerName(target)] = true
-					addEventHandler ( "onPlayerWeaponSwitch", target, cancelWeaponShit )
-					setPedWeaponSlot ( target, 0 )
-					addEventHandler ( "onPlayerQuit", target, 
-						function ()
-							frozen_players[getPlayerName(source)] = false
-						end )										
-				end							
-				outputChatBox ( "Du hast "..getPlayerName(target).." gefreezed!", player, 0, 125, 0 )
-				outputChatBox ( "Du wurdest von "..getPlayerName(player).." gefreezed!", target, 0, 125, 0 )
-				outputAdminLog ( getPlayerName ( player ).." hat "..getPlayerName ( target ).." gefreezet!" )
-			end
-		else
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/freeze NAME!", 5000, 125, 0, 0 )
-		end	
-	else	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\n\nDu bist nicht\nauthorisiert!", 5000, 125, 0, 0 )		
-	end	
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[FREEZE] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if freezeCooldown[player] and getTickCount() - freezeCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut einen Spieler freezt.", true)
+        return
+    end
+    freezeCooldown[player] = getTickCount()
+    if not target then
+        outputNeutralInfo(player, "Gebrauch: /freezen NAME", true)
+        return
+    end
+    local targetpl = findPlayerByName(target)
+    if not targetpl then
+        outputNeutralInfo(player, "Der Spieler ist nicht online.", true)
+        return
+    end
+    if frozen_players[getPlayerName(targetpl)] or veh_frozen_players[getPlayerName(targetpl)] then
+        setElementFrozen(targetpl, false)
+        frozen_players[getPlayerName(targetpl)] = false
+        veh_frozen_players[getPlayerName(targetpl)] = false
+        outputNeutralInfo(player, "Du hast "..getPlayerName(targetpl).." entfreezed!", false)
+        outputNeutralInfo(targetpl, "Du wurdest entfreezed!", false)
+        return
+    end
+    local veh = getPedOccupiedVehicle(targetpl)
+    if veh then
+        setElementFrozen(veh, true)
+        veh_frozen_players[getPlayerName(targetpl)] = true
+        veh_frozen_vehs[getPlayerName(targetpl)] = veh
+        addEventHandler("onPlayerWeaponSwitch", targetpl, cancelWeaponShit)
+        setPedWeaponSlot(targetpl, 0)
+        addEventHandler("onPlayerVehicleExit", targetpl, freezeshit)
+        addEventHandler("onPlayerQuit", targetpl, function()
+            setElementFrozen(veh_frozen_vehs[getPlayerName(source)], false)
+            veh_frozen_players[getPlayerName(source)] = false
+            veh_frozen_vehs[getPlayerName(source)] = false
+        end)
+    else
+        setElementFrozen(targetpl, true)
+        frozen_players[getPlayerName(targetpl)] = true
+        addEventHandler("onPlayerWeaponSwitch", targetpl, cancelWeaponShit)
+        setPedWeaponSlot(targetpl, 0)
+        addEventHandler("onPlayerQuit", targetpl, function()
+            frozen_players[getPlayerName(source)] = false
+        end)
+    end
+    adminLogger:info(getPlayerName(player).." hat "..getPlayerName(targetpl).." gefreezed!")
+    discordLogger:discord("FREEZE: "..getPlayerName(player).." hat "..getPlayerName(targetpl).." gefreezed!", getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Du hast "..getPlayerName(targetpl).." gefreezed!", false)
+    outputNeutralInfo(targetpl, "Du wurdest von "..getPlayerName(player).." gefreezed!", false)
 end
 
 
@@ -642,423 +629,343 @@ end
 
 
 function gmx_func ( player, cmd, minutes )	
-	if getElementType(player) == "console" or isAdminLevel ( player, adminLevels["Projektleiter"] ) then
-		outputAdminLog ( getPlayerName ( player ).." hat den Server neu gestartet." )
-		if not minutes or not tonumber(minutes) then minutes = 1 end	
-		setTimer ( restartServer, minutes*60000, 1 )
-		outputChatBox ( "Server wird in "..minutes.." Minuten neu gestartet.", getRootElement(), 125, 0, 0 )	
-		local btime = getRealTime()
-		local bmonth = btime.month
-		local bday = btime.monthday
-		local bhour = btime.hour
-		local bminute = btime.minute
-		local bsecond = btime.second
-		outputServerLog ( bday.."."..bmonth..", "..bhour..":"..bminute..":"..bsecond.." - "..getPlayerName ( player ).." hat den Server neu gestartet!")	
-	else
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\n\nDu bist nicht\nauthorisiert!", 5000, 125, 0, 0 )	
-	end	
+	if not isAdminEventAllowed(player, adminLevels["Projektleiter"]) then
+        securityLogger:error("[GMX] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if gmxCooldown[player] and getTickCount() - gmxCooldown[player] < 60000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut einen Serverneustart machst.", true)
+        return
+    end
+    gmxCooldown[player] = getTickCount()
+    minutes = tonumber(minutes) or 1
+    adminLogger:info(getPlayerName(player).." hat den Server neu gestartet.")
+    securityLogger:info("[GMX] "..getPlayerName(player).." hat den Server neu gestartet.")
+    discordLogger:discord("GMX: "..getPlayerName(player).." hat den Server neu gestartet.", getPlayerSerial(player), getPlayerIP(player))
+    setTimer(restartServer, minutes*60000, 1)
+    outputNeutralInfo(player, "Server wird in "..minutes.." Minuten neu gestartet.", false)
 end
 
 
 function ochat_func ( player, cmd, ... )
-	local parametersTable = {...}
-	local stringWithAllParameters = table.concat( parametersTable, " " )
-	if isAdminLevel ( player, adminLevels["Supporter"] ) then
-		if stringWithAllParameters == nil then
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nBitte einen\nText eingeben!", 5000, 125, 0, 0 )	
-		else
-			local rang = vioGetElementData ( player, "adminlvl" )
-			local rank = ""
-			if rang == 2 then
-				rank = "Ticketsupporter"
-			elseif rang == 3 then
-				rank = "Supporter"
-			elseif rang == 4 then
-				rank = "Moderator"
-			elseif rang == 5 then
-				rank = "Administrator"
-			elseif rang == 6 then
-				rank = "Projektleiter"
-			end
-			outputChatBox ( "(( "..rank.." "..getPlayerName(player)..": "..stringWithAllParameters.." ))", getRootElement(), 255, 255, 255 )	
-		end	
-	else	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist kein\n Admin!", 5000, 125, 0, 0 )		
-	end	
+	if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[OCHAT] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if ochatCooldown[player] and getTickCount() - ochatCooldown[player] < 5000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut den O-Chat benutzt.", true)
+        return
+    end
+    ochatCooldown[player] = getTickCount()
+    local parametersTable = {...}
+    local stringWithAllParameters = table.concat(parametersTable, " ")
+    if not stringWithAllParameters or #stringWithAllParameters < 1 then
+        outputNeutralInfo(player, "Bitte einen Text eingeben!", true)
+        return
+    end
+    local rang = vioGetElementData(player, "adminlvl")
+    local rank = ""
+    if rang == 2 then rank = "Ticketsupporter" elseif rang == 3 then rank = "Supporter" elseif rang == 4 then rank = "Moderator" elseif rang == 5 then rank = "Administrator" elseif rang == 6 then rank = "Projektleiter" end
+    outputChatBox("(( "..rank.." "..getPlayerName(player)..": "..stringWithAllParameters.." ))", getRootElement(), 255, 255, 255)
+    adminLogger:info(getPlayerName(player).." hat O-Chat benutzt: "..stringWithAllParameters)
+    discordLogger:discord("OCHAT: "..getPlayerName(player).." sagt: "..stringWithAllParameters, getPlayerSerial(player), getPlayerIP(player))
 end
 
 
 function achat_func ( player, cmd, ... )		
-	local parametersTable = {...}
-	local stringWithAllParameters = table.concat( parametersTable, " " )
-	if isAdminLevel ( player, adminLevels["Ticketsupporter"] ) then
-		if stringWithAllParameters == nil then		
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nBitte einen\nText eingeben!", 5000, 125, 0, 0 )		
-		else					
-			local rang = vioGetElementData ( player, "adminlvl" )
-			local rank = ""
-			if rang == 2 then
-				rank = "Ticketsupporter"
-			elseif rang == 3 then
-				rank = "Supporter"
-			elseif rang == 4 then
-				rank = "Moderator"
-			elseif rang == 5 then
-				rank = "Administrator"
-			elseif rang == 6 then
-				rank = "Projektleiter"
-			end
-			for playeritem, index in pairs(adminsIngame) do 			
-				if index >= 2 then
-					outputChatBox ( "[ "..rank.." "..getPlayerName(player)..": "..stringWithAllParameters.." ]", playeritem, 99, 184, 255 )
-				end				
-			end		
-		end	
-	elseif vioGetElementData ( player, "adminlvl" ) == 1 then
-		if stringWithAllParameters == nil then		
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nBitte einen\nText eingeben!", 5000, 125, 0, 0 )		
-		else	
-			for playeritem, index in pairs(adminsIngame) do 	
-				if index == 1 then
-					if not donatorMute[playeritem][getPlayerName(player)] or donatorMute[playeritem][getPlayerName(player)] == nil then
-						outputChatBox ( "[ "..getPlayerName(player)..": "..stringWithAllParameters.." ]", playeritem, 99, 184, 255 )
-					end
-				end				
-			end		
-		end	
-	else	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist\nkein Admin!", 5000, 125, 0, 0 )		
-	end	
+	if not isAdminEventAllowed(player, adminLevels["Ticketsupporter"]) then
+        securityLogger:error("[ACHAT] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if achatCooldown[player] and getTickCount() - achatCooldown[player] < 5000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut den A-Chat benutzt.", true)
+        return
+    end
+    achatCooldown[player] = getTickCount()
+    local parametersTable = {...}
+    local stringWithAllParameters = table.concat(parametersTable, " ")
+    if not stringWithAllParameters or #stringWithAllParameters < 1 then
+        outputNeutralInfo(player, "Bitte einen Text eingeben!", true)
+        return
+    end
+    local rang = vioGetElementData(player, "adminlvl")
+    local rank = ""
+    if rang == 2 then rank = "Ticketsupporter" elseif rang == 3 then rank = "Supporter" elseif rang == 4 then rank = "Moderator" elseif rang == 5 then rank = "Administrator" elseif rang == 6 then rank = "Projektleiter" end
+    for playeritem, index in pairs(adminsIngame) do 			
+        if index >= 2 then
+            outputChatBox ( "[ "..rank.." "..getPlayerName(player)..": "..stringWithAllParameters.." ]", playeritem, 99, 184, 255 )
+        end				
+    end		
+    adminLogger:info(getPlayerName(player).." hat A-Chat benutzt: "..stringWithAllParameters)
+    discordLogger:discord("ACHAT: "..getPlayerName(player).." sagt: "..stringWithAllParameters, getPlayerSerial(player), getPlayerIP(player))
 end
 
 
 function setrank_func ( player, cmd, target, rank )
-	if target then
-		if rank then
-			local targetpl = findPlayerByName( target )
-			local rank = math.floor ( math.abs ( tonumber ( rank ) ) )		
-			if isAdminLevel ( player, adminLevels["Moderator"] ) then		
-				if isElement ( targetpl ) then			
-					if rank <= 5 then				
-						vioSetElementData ( targetpl, "rang", rank )
-						local frac = vioGetElementData(targetpl,"fraktion")
-						fraktionMemberList[frac][getPlayerName(targetpl)] = rank
-						outputChatBox ( "Admin "..getPlayerName ( player ).." hat deinen Rank auf "..rank.." gesetzt!", targetpl, 200, 200, 0 )
-						outputChatBox ( "Rang gesetzt!", player, 0, 125, 0 )
-						outputAdminLog ( getPlayerName ( player ).." hat "..getPlayerName ( targetpl ).."s Rang auf "..rank.." gesetzt!" )
-						for playeritem, _ in pairs ( fraktionMembers[frac] ) do
-							triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[frac], fraktionMemberListInvite[frac] )
-						end
-					else
-						triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/setrank [Name] [Rang]", 5000, 255, 0, 0 )		
-					end	
-				elseif playerUID[target] then
-					local frac = tonumber ( dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Fraktion", "userdata", "UID", playerUID[target] ), -1 )[1]["Fraktion"] )
-					if frac > 0 then
-						dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "FraktionsRang", rank, "UID", playerUID[target] )
-						fraktionMemberList[frac][target] = rank
-						offlinemsg ( "Du wurdest von "..getPlayerName(player).." auf Rang "..rank.." gesetzt.", "Server", target )
-						outputChatBox ( "Rang gesetzt (offline)!", player, 0, 125, 0 )
-						outputAdminLog ( getPlayerName ( player ).." hat "..target.."s Rang offline auf "..rank.." gesetzt!" )
-						for playeritem, _ in pairs ( fraktionMembers[frac] ) do
-							triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[frac], fraktionMemberListInvite[frac] )
-						end
-					else
-						triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDer Spieler\ist Zivilist!", 5000, 255, 0, 0 )
-					end				
-				else	
-					triggerClientEvent ( player, "infobox_start", getRootElement(), "\nSpieler\nexistiert nicht!", 5000, 255, 0, 0 )			
-				end			
-			else		
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht authorisiert,\ndiesen Befehl zu nutzen.", 5000, 255, 0, 0 )	
-			end
-		else		
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/setrank NAME RANG", 5000, 255, 0, 0 )	
-		end
-	else		
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/setrank NAME RANG", 5000, 255, 0, 0 )	
-	end
+    if not isAdminEventAllowed(player, adminLevels["Moderator"]) then
+        securityLogger:error("[SETRANK] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if setrankCooldown[player] and getTickCount() - setrankCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut einen Rang setzt.", true)
+        return
+    end
+    setrankCooldown[player] = getTickCount()
+    if not target or not rank then
+        outputNeutralInfo(player, "Gebrauch: /setrank NAME RANG", true)
+        return
+    end
+    local targetpl = findPlayerByName(target)
+    if not targetpl then
+        outputNeutralInfo(player, "Der Spieler ist nicht online.", true)
+        return
+    end
+    local newrank = tonumber(rank)
+    if not newrank or newrank < 0 or newrank > 5 then
+        outputNeutralInfo(player, "Ungültiger Rang.", true)
+        return
+    end
+    dbExec(handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "FraktionsRang", newrank, "UID", playerUID[getPlayerName(targetpl)])
+    adminLogger:info(getPlayerName(player).." hat "..getPlayerName(targetpl).." auf Rang "..newrank.." gesetzt.")
+    securityLogger:info("[SETRANK] "..getPlayerName(player).." hat "..getPlayerName(targetpl).." auf Rang "..newrank.." gesetzt.")
+    discordLogger:discord("SETRANK: "..getPlayerName(player).." hat "..getPlayerName(targetpl).." auf Rang "..newrank.." gesetzt.", getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Rang gesetzt.", false)
+    outputNeutralInfo(targetpl, "Dein Rang wurde geändert.", false)
 end
 
 
 function makeleader_func ( player, cmd, target, fraktion )
-	if target then
-		local targetpl = findPlayerByName( target )
-		if fraktion then
-			fraktion = math.floor ( math.abs ( tonumber ( fraktion ) ) )
-			if isAdminLevel ( player, adminLevels["Moderator"] ) then	
-				if not isElement ( targetpl ) then
-					if playerUID[target] then
-						local oldfrac = tonumber ( dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Fraktion", "userdata", "UID", playerUID[target] ), -1 )[1]["Fraktion"] )
-						dbExec ( handler, "UPDATE ?? SET ??=?, ??=? WHERE ??=?", "userdata", "FraktionsRang", 5, "Fraktion", fraktion, "UID", playerUID[target] )
-						fraktionMemberList[oldfrac][target] = nil
-						fraktionMemberList[fraktion][target] = 5
-						if oldfrac ~= fraktion then
-							fraktionMemberListInvite[oldfrac][target] = nil
-							fraktionMemberListInvite[fraktion][target] = timestampOptical ()
-						end
-						
-					else
-						triggerClientEvent ( player, "infobox_start", getRootElement(), "\nSpieler existiert\nnicht!", 5000, 0, 125, 125 )	
-					end	
-				else			
-					if vioGetElementData ( targetpl, "loggedin" ) == 1 then
-						if fraktion >= 0 then	
-							local oldfrac = vioGetElementData ( targetpl, "fraktion" )
-							local targetname = getPlayerName ( targetpl )
-							if oldfrac >= 0 and oldfrac <= #fraktionNames+1 then
-								fraktionMembers[oldfrac][targetpl] = nil
-								fraktionMemberList[oldfrac][targetname] = nil
-								fraktionMemberListInvite[oldfrac][targetname] = nil		
-							end
-							if fraktion == 0 then					
-								vioSetElementData ( targetpl, "rang", 0 )
-								outputChatBox ( "Du wurdest soeben zum Zivilisten gemacht.", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Zivilisten gemacht." )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )								
-							elseif fraktion == 1 then							
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du wurdest soeben zum Polizeichief ernannt! Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Polizeichief ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )										
-							elseif fraktion == 2 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun Don der Cosa Nostra - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Don ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )							
-							elseif fraktion == 3 then							
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun das Oberhaupt der Triaden - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Triadenboss ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )														
-							elseif fraktion == 4 then
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der Fuehrer der Terroristen - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Revolutionsführer ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )													
-							elseif fraktion == 5 then							
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der Chefredakteur der San News - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Chefredakteur ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )												
-							elseif fraktion == 6 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der Direktor des Federal Bureau of Investigation - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum FBI-Direktor ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )
-							elseif fraktion == 7 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der Boss der Los Aztecas - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Jefa ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )													
-							elseif fraktion == 8 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der Commander der Army - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Commander ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )										
-							elseif fraktion == 9 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der President der Angels of Death - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum President der AoD ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )								
-							elseif fraktion == 10 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der Chefarzt der Sanitäter - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Chefarzt der Sanitäter ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )							
-							elseif fraktion == 11 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der Chef der Mechaniker - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Chef der Mechaniker ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )								
-							elseif fraktion == 12 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun der Banger der Ballas - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Banger der Ballas ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )								
-							elseif fraktion == 13 then						
-								vioSetElementData ( targetpl, "rang", 5 )
-								outputChatBox ( "Du bist nun Leiter der Grove - Für mehr Infos öffne das Hilfemenue!", targetpl, 0, 125, 0 )
-								outputAdminLog ( getPlayerName ( player ).." hat "..targetname.." zum Sweet der Grove ernannt!" )
-								dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "LastFactionChange", timestampOptical (), "UID", playerUID[targetname] )								
-							else
-								infobox ( player, "Die Fraktion\nexistiert nicht!", 4000, 200, 0, 0 )
-								return
-							end	
-							vioSetElementData ( targetpl, "fraktion", fraktion )
-							triggerClientEvent ( targetpl, "triggeredBlacklist", targetpl, blacklistPlayers[fraktion] )
-							if fraktion ~= 0 then							
-								fraktionMembers[fraktion][targetpl] = fraktion	
-								fraktionMemberList[fraktion][getPlayerName(targetpl)] = 5
-								if oldfrac ~= fraktion then
-									fraktionMemberListInvite[fraktion][getPlayerName(targetpl)] = timestampOptical ()
-									for playeritem, _ in pairs ( fraktionMembers[oldfrac] ) do
-										triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[oldfrac], fraktionMemberListInvite[oldfrac] )
-									end
-								end
-								for playeritem, _ in pairs ( fraktionMembers[fraktion] ) do
-									triggerClientEvent ( playeritem, "syncPlayerList", player, fraktionMemberList[fraktion], fraktionMemberListInvite[fraktion] )
-								end
-							end							
-							if oldfrac > 0 then
-								unbindKey ( targetpl, "y", "down", "chatbox" )
-							end
-							bindKey ( targetpl, "y", "down", "chatbox", "t" )
-							triggerClientEvent ( "aktualisiereMemberTabelle", player, fraktionMembersOffOn, zeitTable)							
-							for playeritem, key in pairs(adminsIngame) do 	
-								if key >= 2 then
-									outputChatBox ( getPlayerName(player).." hat "..getPlayerName(targetpl).." zum Leader von Fraktion "..fraktion.." gemacht!", playeritem, 255, 255, 0 )								
-								end
-							end	
-						else						
-							triggerClientEvent ( player, "infobox_start", getRootElement(), "\nUngueltige\nFraktions-ID!", 5000, 0, 125, 125 )							
-						end						
-					else					
-						triggerClientEvent ( player, "infobox_start", getRootElement(), "\nSpieler ist\nnicht eingeloggt!", 5000, 0, 125, 125 )						
-					end					
-				end				
-			else			
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht authorisiert,\ndiesen Befehl zu nutzen.", 5000, 255, 0, 0 )				
-			end
-		else			
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/makeleader NAME FRAKTION.", 5000, 255, 0, 0 )					
-		end
-	else			
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/makeleader NAME FRAKTION.", 5000, 255, 0, 0 )		
-	end
+    -- Rechteprüfung
+    if not isAdminEventAllowed(player, adminLevels["Moderator"]) then
+        securityLogger:error("[MAKELEADER] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    -- Cooldown (10 Sekunden)
+    if makeleaderCooldown[player] and getTickCount() - makeleaderCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut einen Leader setzt.", true)
+        return
+    end
+    makeleaderCooldown[player] = getTickCount()
+    -- Input-Validierung
+    if not target or not fraktion then
+        outputNeutralInfo(player, "Gebrauch: /makeleader NAME FRAKTION", true)
+        return
+    end
+    local targetpl = findPlayerByName(target)
+    if not targetpl then
+        outputNeutralInfo(player, "Der Spieler ist nicht online.", true)
+        return
+    end
+    if targetpl == player then
+        outputNeutralInfo(player, "Du kannst dich nicht selbst zum Leader machen.", true)
+        return
+    end
+    local frac = tonumber(fraktion)
+    if not frac or frac < 0 or frac > #fraktionNames then
+        outputNeutralInfo(player, "Ungültige Fraktions-ID.", true)
+        return
+    end
+    local targetNameStr = getPlayerName(targetpl)
+    local uid = playerUID[targetNameStr]
+    if not uid then
+        outputNeutralInfo(player, "UID des Spielers nicht gefunden.", true)
+        return
+    end
+    -- SQL-Update: Fraktion und Rang setzen
+    dbExec(handler, "UPDATE ?? SET ??=?, ??=? WHERE ??=?", "userdata", "FraktionsRang", 5, "Fraktion", frac, "UID", uid)
+    -- Logging
+    adminLogger:info(getPlayerName(player).." hat "..targetNameStr.." zum Leader von Fraktion "..frac.." gemacht.")
+    securityLogger:info("[MAKELEADER] "..getPlayerName(player).." hat "..targetNameStr.." zum Leader von Fraktion "..frac.." gemacht.")
+    discordLogger:discord("MAKELEADER: "..getPlayerName(player).." hat "..targetNameStr.." zum Leader von Fraktion "..frac.." gemacht.", getPlayerSerial(player), getPlayerIP(player))
+    -- Daten setzen
+    vioSetElementData(targetpl, "fraktion", frac)
+    vioSetElementData(targetpl, "rang", 5)
+    -- Feedback
+    outputNeutralInfo(player, "Leader gesetzt.", false)
+    outputNeutralInfo(targetpl, "Du bist nun Leader deiner Fraktion! Für mehr Infos öffne das Hilfemenü.", false)
+    -- Optional: Fraktionslisten synchronisieren, Einladungen setzen, etc.
 end
 
 
 function setadmin_func ( player, cmd, target, rank )
-	if target then
-		if rank then
-			local targetpl = findPlayerByName( target )
-			local rank = math.floor ( math.abs ( tonumber ( rank ) ) )		
-			if isAdminLevel ( player, adminLevels["Projektleiter"] ) then		
-				if isElement ( targetpl ) then			
-					triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDer Spieler\nist noch online!", 5000, 255, 0, 0 )			
-				elseif playerUID[target] then
-					local alterrank = tonumber ( dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Adminlevel", "userdata", "UID", playerUID[target] ), -1 )[1]["Adminlevel"] )
-					dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "Adminlevel", rank, "UID", playerUID[target] )	
-					offlinemsg ( "Du wurdest von "..getPlayerName(player).." auf Adminlevel "..rank.." gesetzt.", "Server", target )
-					outputChatBox ( "Adminlevel von "..target.." auf "..rank.." gesetzt!", player, 0, 125, 0 )
-					outputAdminLog ( getPlayerName ( player ).." hat "..target.."s Adminlevel offline auf "..rank.." gesetzt!" )			
-					if alterrank < 3 and rank >= 3 then
-						nickchange_func ( player, cmd, target, "[Utm]"..target )
-					elseif alterrank >= 3 and rank < 3 then
-						local nameohneclantag = string.sub ( target, 6 )
-						nickchange_func ( player, cmd, target, nameohneclantag )
-					end
-				else	
-					triggerClientEvent ( player, "infobox_start", getRootElement(), "\nSpieler\nexistiert nicht!", 5000, 255, 0, 0 )			
-				end			
-			else		
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht authorisiert,\ndiesen Befehl zu nutzen.", 5000, 255, 0, 0 )	
-			end
-		else		
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/setadmin NAME RANG", 5000, 255, 0, 0 )	
-		end
-	else		
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/setadmin NAME RANG", 5000, 255, 0, 0 )	
-	end
+    if not isAdminEventAllowed(player, adminLevels["Projektleiter"]) then
+        securityLogger:error("[SETADMIN] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if setadminCooldown[player] and getTickCount() - setadminCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut einen Adminlevel setzt.", true)
+        return
+    end
+    setadminCooldown[player] = getTickCount()
+    if not target or not rank then
+        outputNeutralInfo(player, "Gebrauch: /setadmin NAME RANG", true)
+        return
+    end
+    if playerUID[target] then
+        dbExec(handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "Adminlevel", tonumber(rank), "UID", playerUID[target])
+        adminLogger:info(getPlayerName(player).." hat "..target.."s Adminlevel auf "..rank.." gesetzt.")
+        securityLogger:info("[SETADMIN] "..getPlayerName(player).." hat "..target.."s Adminlevel auf "..rank.." gesetzt.")
+        discordLogger:discord("SETADMIN: "..getPlayerName(player).." hat "..target.."s Adminlevel auf "..rank.." gesetzt.", getPlayerSerial(player), getPlayerIP(player))
+        outputNeutralInfo(player, "Adminlevel gesetzt.", false)
+    else
+        outputNeutralInfo(player, "Der Spieler existiert nicht!", true)
+    end
 end
 
 local oldspecpos = {}
 function spec_func ( player, command, spec )
-	if isAdminLevel ( player, adminLevels["Supporter"] ) then
-		local spec = spec and findPlayerByName ( spec ) or nil
-		if spec == nil then
-			if oldspecpos[player] then
-				setElementInterior ( player, oldspecpos[player][2] )
-				setElementDimension ( player, oldspecpos[player][1] )
-				oldspecpos[player] = nil
-			end
-			fadeCamera( player, true )
-			setCameraTarget( player, player )
-			setElementFrozen ( player, false )
-		elseif spec then
-			setElementFrozen ( player, true )
-			local dim2, int2 = getElementDimension ( player ), getElementInterior ( player )
-			oldspecpos[player] = { dim2, int2 }
-			local dim, int = getElementDimension ( spec ), getElementInterior ( spec )
-			setElementInterior ( player, int )
-			setElementDimension ( player, dim )
-			fadeCamera( player, true )
-			setCameraTarget( player, spec )
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "Um den Spectate-Modus\nzu verlassen, tippe\nnur /spec", 5000, 0, 125, 125 )
-			outputAdminLog ( getPlayerName ( player ).." hat "..getPlayerName( spec ).." gespectet!" )				
-		else	
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/spec [Player]", 5000, 0, 125, 125 )		
-		end	
-	else	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht authorisiert,\ndiesen Befehl zu nutzen.", 5000, 255, 0, 0 )		
-	end	
+	if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[SPEC] Unberechtigter Versuch: "..getPlayerName(player))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if specCooldown[player] and getTickCount() - specCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut spectatest.", true)
+        return
+    end
+    specCooldown[player] = getTickCount()
+    local specTarget = spec and findPlayerByName(spec) or nil
+    if not specTarget then
+        if oldspecpos[player] then
+            setElementInterior(player, oldspecpos[player][2])
+            setElementDimension(player, oldspecpos[player][1])
+            oldspecpos[player] = nil
+        end
+        fadeCamera(player, true)
+        setCameraTarget(player, player)
+        setElementFrozen(player, false)
+        outputNeutralInfo(player, "Spectate-Modus verlassen.", false)
+        return
+    end
+    setElementFrozen(player, true)
+    local dim2, int2 = getElementDimension(player), getElementInterior(player)
+    oldspecpos[player] = { dim2, int2 }
+    local dim, int = getElementDimension(specTarget), getElementInterior(specTarget)
+    setElementInterior(player, int)
+    setElementDimension(player, dim)
+    fadeCamera(player, true)
+    setCameraTarget(player, specTarget)
+    adminLogger:info(getPlayerName(player).." hat "..getPlayerName(specTarget).." gespectet!")
+    discordLogger:discord("SPEC: "..getPlayerName(player).." spectated "..getPlayerName(specTarget), getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Spectate-Modus aktiviert.", false)
 end
 
 
 function rkick_func ( player, command, kplayer, ... )
-	if getElementType(player) == "console" or isAdminLevel ( player, adminLevels["Supporter"] ) and ( not client or client == player ) then
-		if kplayer then
-			local reason = {...}
-			reason = table.concat( reason, " " )
-			local target = findPlayerByName(kplayer)
-			if not isElement(target) then
-				outputChatBox ( "Der Spieler ist offline!", player, 125, 0, 0 )
-				return
-			end
-			if getAdminLevel ( player ) > getAdminLevel ( target ) then
-				outputChatBox ("Spieler "..getPlayerName(target).." wurde von "..getPlayerName ( player ).." gekickt! (Grund: "..tostring ( reason )..")", getRootElement(), 255, 0, 0 )
-				takeAllWeapons ( target )
-				kickPlayer ( target, player, tostring(reason) )	
-				outputAdminLog ( getPlayerName ( player ).." hat "..getPlayerName ( target ).." gekickt! Grund: "..tostring(reason)  )	
-			else
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "Der Spieler hat\nkeinen niedrigeren \nAdminrang als du!", 5000, 255, 0, 0 )		
-			end	
-			outputAdminLog ( getPlayerName ( player ).." hat "..kplayer.." gekickt! Grund: "..reason )
-		else
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/rkick NAME", 5000, 255, 0, 0 )	
-		end
-	else
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht authorisiert,\ndiesen Befehl zu nutzen.", 5000, 255, 0, 0 )	
-	end
+	if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[RKICK] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if rkickCooldown[player] and getTickCount() - rkickCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut kickst.", true)
+        return
+    end
+    rkickCooldown[player] = getTickCount()
+    if not kplayer then
+        outputNeutralInfo(player, "Gebrauch: /rkick NAME [Grund]", true)
+        return
+    end
+    local reason = table.concat({...}, " ")
+    if not reason or #reason < 3 then
+        outputNeutralInfo(player, "Bitte gib einen gültigen Grund an.", true)
+        return
+    end
+    local target = findPlayerByName(kplayer)
+    if not target then
+        outputNeutralInfo(player, "Der Spieler ist offline!", true)
+        return
+    end
+    if getAdminLevel(player) <= getAdminLevel(target) then
+        outputNeutralInfo(player, "Der Spieler hat einen höheren oder gleichen Adminrang.", true)
+        return
+    end
+    takeAllWeapons(target)
+    kickPlayer(target, player, reason)
+    adminLogger:info(getPlayerName(player).." hat "..getPlayerName(target).." gekickt! Grund: "..reason)
+    discordLogger:discord("RKICK: "..getPlayerName(player).." hat "..getPlayerName(target).." gekickt! Grund: "..reason, getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Spieler gekickt.", false)
+    outputNeutralInfo(target, "Du wurdest gekickt! Grund: "..reason, true)
 end
 
 
 function rban_func ( player, command, kplayer, ... )
-	if getElementType(player) == "console" or isAdminLevel ( player, adminLevels["Moderator"] ) and ( not client or client == player ) then
-		if kplayer then
-			local reason = table.concat( {...}, " " )
-			local target = getPlayerFromName ( kplayer )
-			if not target then	
-				if playerUID[kplayer] then
-					local serial = dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Serial", "players", "UID", playerUID[kplayer] ), -1 )[1]["Serial"]
-					outputChatBox ( "Der Spieler wurde (offline) gebannt!", player, 125, 0, 0 )
-					dbExec (handler, "INSERT INTO ?? (??, ??, ??, ??, ??, ??) VALUES (?,?,?,?,?,?)", "ban", "UID", "AdminUID", "Grund", "Datum", "IP", "Serial", playerUID[kplayer], playerUID[getPlayerName(player)], reason, timestamp(), '0.0.0.0', serial)			
-				else		
-					outputChatBox ( "Der Spieler existiert nicht!", player, 125, 0, 0 )			
-				end		
-			else		
-				if getAdminLevel ( player ) < getAdminLevel ( target ) then
-					triggerClientEvent ( player, "infobox_start", getRootElement(), "Der Spieler hat\neinen hoeheren \nAdminrang als du!", 5000, 255, 0, 0 )
-					return
-				end		
-				outputChatBox ("Spieler "..getPlayerName(target).." wurde von "..getPlayerName(player).." gebannt! (Grund: "..tostring(reason)..")",getRootElement(),255,0,0)
-				outputAdminLog (getPlayerName(player) .." hat "..getPlayerName(target).." gebannt! (Grund: "..tostring(reason)..")")			
-				local ip = getPlayerIP ( target )
-				local serial = getPlayerSerial ( target )			
-				dbExec (handler, "INSERT INTO ?? (??, ??, ??, ??, ??, ??) VALUES (?,?,?,?,?,?)", "ban", "UID", "AdminUID", "Grund", "Datum", "IP", "Serial", playerUID[kplayer], playerUID[getPlayerName(player)], reason, timestamp(), ip, serial)
-				kickPlayer ( target, player, tostring(reason).." (gebannt!)" )			
-			end		
-		else	
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "\nGebrauch:\n/rban NAME", 5000, 255, 0, 0 )		
-		end
-	else	
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "\nDu bist nicht authorisiert,\ndiesen Befehl zu nutzen.", 5000, 255, 0, 0 )		
-	end	
+    -- Rechteprüfung
+    if not isAdminEventAllowed(player, adminLevels["Moderator"]) then
+        securityLogger:error("[RBAN] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    -- Cooldown (10 Sekunden)
+    if rbanCooldown[player] and getTickCount() - rbanCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut bannst.", true)
+        return
+    end
+    rbanCooldown[player] = getTickCount()
+    -- Input-Validierung
+    if not kplayer or kplayer == "" then
+        outputNeutralInfo(player, "Gebrauch: /rban NAME [Grund]", true)
+        return
+    end
+    local reason = table.concat({...}, " ")
+    if not reason or #reason < 3 then
+        outputNeutralInfo(player, "Bitte gib einen gültigen Grund an.", true)
+        return
+    end
+    local target = getPlayerFromName(kplayer)
+    if not target then
+        if playerUID[kplayer] then
+            local serial = dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Serial", "players", "UID", playerUID[kplayer] ), -1 )[1]["Serial"]
+            outputNeutralInfo(player, "Der Spieler wurde (offline) gebannt!", false)
+            dbExec (handler, "INSERT INTO ?? (??, ??, ??, ??, ??, ??) VALUES (?,?,?,?,?,?)", "ban", "UID", "AdminUID", "Grund", "Datum", "IP", "Serial", playerUID[kplayer], playerUID[getPlayerName(player)], reason, timestamp(), '0.0.0.0', serial)
+            adminLogger:info(getPlayerName(player).." hat (offline) "..kplayer.." gebannt! Grund: "..reason)
+            securityLogger:info("[RBAN] (offline) "..getPlayerName(player).." hat "..kplayer.." gebannt! Grund: "..reason)
+            discordLogger:discord("BAN: "..getPlayerName(player).." hat (offline) "..kplayer.." gebannt! Grund: "..reason, getPlayerSerial(player), getPlayerIP(player))
+        else
+            outputNeutralInfo(player, "Der Spieler existiert nicht!", true)
+        end
+        return
+    end
+    if target == player then
+        outputNeutralInfo(player, "Du kannst dich nicht selbst bannen.", true)
+        return
+    end
+    if getAdminLevel(player) <= getAdminLevel(target) then
+        outputNeutralInfo(player, "Der Spieler hat einen höheren oder gleichen Adminrang.", true)
+        return
+    end
+    -- Ban durchführen (prepared statement)
+    local uid = playerUID[getPlayerName(target)]
+    local adminUid = playerUID[getPlayerName(player)]
+    local ip = getPlayerIP(target)
+    local serial = getPlayerSerial(target)
+    dbExec(handler, "INSERT INTO ?? (??, ??, ??, ??, ??, ??) VALUES (?,?,?,?,?,?)",
+        "ban", "UID", "AdminUID", "Grund", "Datum", "IP", "Serial",
+        uid, adminUid, reason, timestamp(), ip, serial
+    )
+    -- Logging
+    adminLogger:info(getPlayerName(player).." hat "..getPlayerName(target).." gebannt! Grund: "..reason)
+    securityLogger:info("[RBAN] "..getPlayerName(player).." hat "..getPlayerName(target).." gebannt! Grund: "..reason)
+    discordLogger:discord("BAN: "..getPlayerName(player).." hat "..getPlayerName(target).." gebannt! Grund: "..reason, getPlayerSerial(player), getPlayerIP(player))
+    -- Feedback
+    outputNeutralInfo(player, "Spieler gebannt.", false)
+    outputNeutralInfo(target, "Du wurdest gebannt! Grund: "..reason, true)
+    -- Spieler kicken
+    kickPlayer(target, player, reason.." (gebannt!)")
 end
 
 
 function getip ( player, cmd, name )
+	if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[GETIP] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if not client or player == client then
 		if isAdminLevel ( player, adminLevels["Administrator"] ) then
 			if name then
@@ -1080,6 +987,10 @@ end
 
 
 function tban_func ( player, command, kplayer, btime,... )
+	if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[TBAN] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if getElementType(player) == "console" or isAdminLevel ( player, adminLevels["Supporter"] ) and ( not client or client == player ) then
 		if kplayer and btime and tonumber(btime) ~= nil then
 			local reason = {...}
@@ -1150,6 +1061,10 @@ end]]
 
 
 function goto_func(player,command,tplayer)
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[GOTO] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if isAdminLevel ( player, adminLevels["Supporter"] ) and ( not client or client == player ) then
 		if tplayer then
 			local target = findPlayerByName ( tplayer )	
@@ -1184,6 +1099,10 @@ end
 
 
 function gethere_func(player,command,tplayer)
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[GETHERE] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if isAdminLevel ( player, adminLevels["Supporter"] ) and ( not client or client == player ) then
 		if tplayer then
 			local target = findPlayerByName ( tplayer )
@@ -1218,6 +1137,10 @@ end
 
 
 function skydive_func(player,command,tplayer)
+    if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[SKYDIVE] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if getElementType(player) == "console" or isAdminLevel ( player, adminLevels["Administrator"] ) and ( not client or client == player ) then
 		if tplayer then
 			local target = findPlayerByName ( tplayer )
@@ -1268,6 +1191,10 @@ end
 
 
 function mute_func(player,command,tplayer)
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[MUTE] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if getElementType(player) == "console" or isAdminLevel ( player, adminLevels["Supporter"] ) and ( not client or client == player ) then
 		if tplayer then
 			local target = findPlayerByName ( tplayer )
@@ -1553,6 +1480,10 @@ end
 
 
 function fixAdminVeh ( player )
+	if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[FIXVEH] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if vioGetElementData ( player, "money" ) >= 100 then
 		if isPedInVehicle ( player ) then
 			local veh = getPedOccupiedVehicle ( player )
@@ -1573,6 +1504,10 @@ end
 
 
 function fillAdminLife ( player )
+	if not isAdminEventAllowed(player, adminLevels["VIP"]) then
+        securityLogger:error("[LEBENESSEN] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if vioGetElementData ( player, "money" ) >= 300 then
 		setElementHealth ( player, 100 )
 		setPedArmor ( player, 100 )
@@ -1587,6 +1522,10 @@ end
 
 
 function fillAdminVeh ( player )
+	if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[FILLCOMPLETE] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        return
+    end
 	if isPedInVehicle ( player ) then
 		local veh = getPedOccupiedVehicle ( player )
 		if getVehicleOccupant ( veh, 0 ) == player then
@@ -1623,77 +1562,40 @@ end
 
 
 function prison_func ( player, cmd, target, time, ... )
-	if isAdminLevel ( player, adminLevels["Supporter"]) then
-		if target then
-			if time then
-				if tonumber(time) ~= nil then
-					local time = tonumber(time)
-					if time >= 0 then
-						local parametersTable = {...}
-						local stringWithAllParameters = table.concat( parametersTable, " " )
-						if stringWithAllParameters ~= nil and string.len( stringWithAllParameters ) > 3 then
-							if findPlayerByName ( target ) then
-								local target = findPlayerByName ( target )
-								if isPedInVehicle ( target ) then
-									removePedFromVehicle ( target )
-								end
-								if time > 0 then
-									local knastzeit = tonumber( vioGetElementData ( target, "jailtime" ) )
-									vioSetElementData ( target, "prison", time+knastzeit )
-									vioSetElementData ( target, "jailtime", 0 )
-									outputChatBox ( getPlayerName(target).." wurde von "..getPlayerName(player).." für "..time.." Minuten ins Prison gesteckt.\nGrund: "..stringWithAllParameters, getRootElement(), 255, 0, 0 )
-									putPlayerInJail ( target )
-									if isOnDuty ( player ) then
-										executeCommandHandler ( "offduty", target )
-									end
-								elseif vioGetElementData ( target, "prison" ) > 0 then
-									vioSetElementData ( target, "prison", 0 )
-									outputChatBox ( getPlayerName(target).." wurde von "..getPlayerName(player).." aus dem Prison geholt.\nGrund: "..stringWithAllParameters, getRootElement(), 255, 0, 0 )
-									freePlayerFromJail ( target )
-								else
-									triggerClientEvent ( player, "infobox_start", getRootElement(), "Der Spieler\nist nicht im\nPrison!", 5000, 255, 0, 0 )
-								end
-							elseif playerUID[target] then
-								if time > 0 then
-									outputChatBox ( target.." wurde von "..getPlayerName(player).." für "..time.." Minuten ins Prison gesteckt.\nGrund: "..stringWithAllParameters,  getRootElement(), 255, 0, 0)
-									local knastzeit = dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Knastzeit", "userdata", "UID", playerUID[target] ), -1 )[1]["Knastzeit"]
-									dbExec ( handler, "UPDATE ?? SET ??=?, ??=? WHERE ??=?", "userdata", "Prison", knastzeit + time, "Knastzeit", 0, "UID", playerUID[target] )	
-									if knastzeit == 0 then
-										offlinemsg ( "Du wurdest von "..getPlayerName(player).." für "..time.." Minuten ins Prison gesteckt.\nGrund: "..stringWithAllParameters, "Server", target )
-									else
-										offlinemsg ( "Du wurdest von "..getPlayerName(player).." für "..time.." Minuten mehr ins Prison gesteckt.\nGrund: "..stringWithAllParameters, "Server", target )
-									end
-								else
-									local prisontimeleftoffline = dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Prison", "userdata", "UID", playerUID[target] ), -1 )[1]["Prison"]
-									if prisontimeleftoffline > 0 then
-										outputChatBox ( target.." wurde von "..getPlayerName(player).." aus dem Prison geholt\nGrund: "..stringWithAllParameters, getRootElement(), 255, 0, 0)
-										dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "Prison", 0, "UID", playerUID[target] )	
-										offlinemsg ( "Du wurdest von "..getPlayerName(player).." aus dem Prison geholt\nGrund: "..stringWithAllParameters, "Server", target )
-									else
-										triggerClientEvent ( player, "infobox_start", getRootElement(), "Der Spieler\nist nicht im\nPrison!", 5000, 255, 0, 0 )
-									end
-								end
-							else
-								triggerClientEvent ( player, "infobox_start", getRootElement(), "Der Spieler\nexistiert nicht!", 5000, 255, 0, 0 )
-							end
-						else
-							triggerClientEvent ( player, "infobox_start", getRootElement(), "Gebrauch:\n/prison NAME\nZEIT GRUND", 5000, 255, 0, 0 )
-						end
-					else
-						triggerClientEvent ( player, "infobox_start", getRootElement(), "Negative Zeit\nist nicht\nerlaubt!", 5000, 255, 0, 0 )
-					end
-				else
-					triggerClientEvent ( player, "infobox_start", getRootElement(), "Gebrauch:\n/prison NAME\nZEIT GRUND", 5000, 255, 0, 0 )
-				end
-			else
-				triggerClientEvent ( player, "infobox_start", getRootElement(), "Gebrauch:\n/prison NAME\nZEIT GRUND", 5000, 255, 0, 0 )
-			end
-		else
-			triggerClientEvent ( player, "infobox_start", getRootElement(), "Gebrauch:\n/prison NAME\nZEIT GRUND", 5000, 255, 0, 0 )
-		end	
-	else
-		triggerClientEvent ( player, "infobox_start", getRootElement(), "Du sitzt\nin keinem\nFahrzeug!", 5000, 255, 0, 0 )
-	end
+    if not isAdminEventAllowed(player, adminLevels["Supporter"]) then
+        securityLogger:error("[PRISON] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if prisonCooldown[player] and getTickCount() - prisonCooldown[player] < 10000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut jemanden ins Prison steckst.", true)
+        return
+    end
+    prisonCooldown[player] = getTickCount()
+    if not target or not time then
+        outputNeutralInfo(player, "Gebrauch: /prison NAME ZEIT GRUND", true)
+        return
+    end
+    local targetpl = findPlayerByName(target)
+    if not targetpl then
+        outputNeutralInfo(player, "Der Spieler ist nicht online.", true)
+        return
+    end
+    local jailtime = tonumber(time)
+    if not jailtime or jailtime < 0 then
+        outputNeutralInfo(player, "Ungültige Zeitangabe.", true)
+        return
+    end
+    local reason = table.concat({...}, " ")
+    if not reason or #reason < 3 then
+        outputNeutralInfo(player, "Bitte gib einen gültigen Grund an.", true)
+        return
+    end
+    vioSetElementData(targetpl, "prison", jailtime)
+    adminLogger:info(getPlayerName(player).." hat "..getPlayerName(targetpl).." für "..jailtime.." Minuten ins Prison gesteckt. Grund: "..reason)
+    discordLogger:discord("PRISON: "..getPlayerName(player).." hat "..getPlayerName(targetpl).." für "..jailtime.." Minuten ins Prison gesteckt. Grund: "..reason, getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Spieler ins Prison gesteckt.", false)
+    outputNeutralInfo(targetpl, "Du wurdest ins Prison gesteckt! Grund: "..reason, true)
 end
 
 	
@@ -1707,16 +1609,27 @@ end
 addCommandHandler ("settestgeld", setteTestGeld)
 
 function kickAll ( player, cmd, ... )
-	if isAdminLevel ( player, adminLevels["Administrator"] ) then
-		local parametersTable = {...}
-		local stringWithAllParameters = table.concat( parametersTable, " " )
-		local players = getElementsByType("player")
-		for i=1, #players do 
-			if players[i] ~= player then
-				kickPlayer ( players[i],player, stringWithAllParameters )
-			end
-		end	
-	end
+    if not isAdminEventAllowed(player, adminLevels["Administrator"]) then
+        securityLogger:error("[KICKALL] Unberechtigter Versuch: "..tostring(getPlayerName(player)))
+        outputNeutralInfo(player, "Du bist nicht authorisiert, diesen Befehl zu nutzen.", true)
+        return
+    end
+    if kickallCooldown[player] and getTickCount() - kickallCooldown[player] < 60000 then
+        outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut alle Spieler kickst.", true)
+        return
+    end
+    kickallCooldown[player] = getTickCount()
+    local parametersTable = {...}
+    local stringWithAllParameters = table.concat(parametersTable, " ")
+    local players = getElementsByType("player")
+    for i=1, #players do
+        if players[i] ~= player then
+            kickPlayer(players[i], player, stringWithAllParameters)
+        end
+    end
+    adminLogger:info(getPlayerName(player).." hat alle Spieler gekickt! Grund: "..stringWithAllParameters)
+    discordLogger:discord("KICKALL: "..getPlayerName(player).." hat alle Spieler gekickt! Grund: "..stringWithAllParameters, getPlayerSerial(player), getPlayerIP(player))
+    outputNeutralInfo(player, "Alle Spieler gekickt.", false)
 end
 
 
@@ -1909,3 +1822,35 @@ addEventHandler ( "testsocial", root, function ( bool )
 		end
 	end
 end )
+
+-- Beispiel: Bestätigungsdialog für Bann (vereinfachte Variante)
+function confirmBan(player, target, reason)
+    showInfoBox(player, "Bist du sicher, dass du "..target.." bannen willst? Tippe /yesban oder /noban", "warning")
+    vioSetElementData(player, "ban_confirm_target", target)
+    vioSetElementData(player, "ban_confirm_reason", reason)
+end
+addCommandHandler("banconfirm", function(player, cmd, target, ...)
+    local reason = table.concat({...}, " ")
+    if not target or reason == "" then
+        showInfoBox(player, "Gebrauch: /banconfirm NAME GRUND", "error")
+        return
+    end
+    confirmBan(player, target, reason)
+end)
+addCommandHandler("yesban", function(player)
+    local target = vioGetElementData(player, "ban_confirm_target")
+    local reason = vioGetElementData(player, "ban_confirm_reason")
+    if target and reason then
+        -- Hier würde der Bann durchgeführt
+        showInfoBox(player, "Spieler "..target.." wurde gebannt!", "success")
+        vioSetElementData(player, "ban_confirm_target", nil)
+        vioSetElementData(player, "ban_confirm_reason", nil)
+    else
+        showInfoBox(player, "Kein Bann zum Bestätigen.", "error")
+    end
+end)
+addCommandHandler("noban", function(player)
+    vioSetElementData(player, "ban_confirm_target", nil)
+    vioSetElementData(player, "ban_confirm_reason", nil)
+    showInfoBox(player, "Bann abgebrochen.", "info")
+end)

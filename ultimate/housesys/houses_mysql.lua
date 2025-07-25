@@ -15,7 +15,7 @@ function createHouse ( player, cmd, preis, int )
 					local CurrentInterior = tonumber ( int )
 					local inserted, _, ID = dbPoll ( dbQuery ( handler, "INSERT INTO houses ( SymbolX, SymbolY, SymbolZ, UID, Preis, CurrentInterior, Kasse, Miete ) VALUES (?,?,?,?,?,?,?,?)", SymbolX, SymbolY, SymbolZ, 0, Preis, CurrentInterior, '0', '0' ), -1 )
 					if not inserted then
-						outputDebugString("[createHouse] Error executing the query")
+						logError("[createHouse] Error executing the query")
 						return false
 					else
 						outputDebugString ("Haus ID "..ID.." wurde angelegt!")

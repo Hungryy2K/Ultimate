@@ -19,11 +19,11 @@ for key, index in pairs ( pokerEnterPlaces["x"] ) do
 	local sx, sy, sz, sr = pokerEnterPlaces["sx"][key], pokerEnterPlaces["sy"][key], pokerEnterPlaces["sz"][key], pokerEnterPlaces["sr"][key]
 	local int, dim, size = pokerEnterPlaces["int"][key], pokerEnterPlaces["sint"][key], pokerEnterPlaces["size"][key]
 	local sint, sdim = pokerEnterPlaces["sint"][key], pokerEnterPlaces["sdim"][key]
-	pokerMarker[key] = createMarker ( x, y, z, "cylinder", size, 125, 0, 0, 125, getRootElement() )
-	addEventHandler ( "onClientMarkerHit", marker, pokerEnterMarkerHit )
-	pokerMarkerData[marker] = {}
-		pokerMarkerData[marker]["x"], pokerMarkerData[marker]["y"], pokerMarkerData[marker]["z"] = sx, sy, sz
-		pokerMarkerData[marker]["r"], pokerMarkerData[marker]["int"], pokerMarkerData[marker]["dim"] = sr, sint, sdim
+	pokerMarker[key] = createMarker ( x, y, z, "cylinder", size, 125, 0, 0, 125 )
+	addEventHandler ( "onClientMarkerHit", pokerMarker[key], pokerEnterMarkerHit )
+	pokerMarkerData[pokerMarker[key]] = {}
+		pokerMarkerData[pokerMarker[key]]["x"], pokerMarkerData[pokerMarker[key]]["y"], pokerMarkerData[pokerMarker[key]]["z"] = sx, sy, sz
+		pokerMarkerData[pokerMarker[key]]["r"], pokerMarkerData[pokerMarker[key]]["int"], pokerMarkerData[pokerMarker[key]]["dim"] = sr, sint, sdim
 end
 
 function joinPokerTable_func ( dim )

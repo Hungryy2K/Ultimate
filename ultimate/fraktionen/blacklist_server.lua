@@ -1,4 +1,10 @@
-﻿blacklistPlayers = {}
+﻿-- local Logger = require("utility.Logger") entfernt, Logger muss global sein
+local adminLogger = Logger:new("Admin")
+local securityLogger = Logger:new("Security")
+local discordLogger = Logger:new("Discord")
+local gangLogger = Logger:new("ganglog")
+
+blacklistPlayers = {}
  blacklistPlayers[2] = {}
  blacklistPlayers[3] = {}
  blacklistPlayers[7] = {}
@@ -36,6 +42,10 @@ factionBlackListGuns = {
  [12]=32,
  [13]=32
 }
+
+local blacklistAddCooldown = {}
+local blacklistDeleteCooldown = {}
+local blacklistShowCooldown = {}
 
 
 function blacklistLogin ( pname )
@@ -91,30 +101,64 @@ end
 
 
 function blacklist_func ( player, cmd, add, target, ... )
-	if not add then
-		infobox ( player, "Gebrauch:\n/blacklist\n[add/delete/show] [Name]!", 5000, 125, 0, 0 )
-	else
-		if validBlackListFactions[vioGetElementData ( player, "fraktion" )] then
-			if add == "add" then
-				local parametersTable = {...}
-				local text = table.concat( parametersTable, " " )
-				
-				if text == nil then
-					outputChatBox ( "Gebrauch: /blacklist add Name Grund", player, 255, 0, 0 )
-				else
-					addBlacklist_func ( player, target, text )			
-				end				
-			elseif add == "delete" then
-				blacklistdelete_func ( player, target )
-			elseif add == "show" then
-				showblacklist_func ( player )
-			else
-				infobox ( player, "Gebrauch:\n/blacklist [add/delete\n/show] [Name]!", 5000, 125, 0, 0 )
-			end
-		else
-			infobox ( player, "\nDu bist in\neiner ungültigen\nFraktion!", 5000, 125, 0, 0 )
-		end
-	end
+    local fraktion = vioGetElementData ( player, "fraktion" )
+    local rang = vioGetElementData ( player, "rang" ) or 0
+    if not add then
+        outputNeutralInfo(player, "Gebrauch: /blacklist [add/delete/show] [Name]", true)
+        return
+    end
+    if not validBlackListFactions[fraktion] then
+        outputNeutralInfo(player, "Du bist in einer ungültigen Fraktion!", true)
+        securityLogger:error("[BLACKLIST] Ungültige Fraktion: "..getPlayerName(player))
+        return
+    end
+    if add == "add" then
+        if blacklistAddCooldown[player] and getTickCount() - blacklistAddCooldown[player] < 10000 then
+            outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut jemanden auf die Blacklist setzt.", true)
+            return
+        end
+        blacklistAddCooldown[player] = getTickCount()
+        if rang < 2 then
+            outputNeutralInfo(player, "Du bist nicht befugt!", true)
+            securityLogger:error("[BLACKLIST] Unberechtigter Add-Versuch: "..getPlayerName(player))
+            return
+        end
+        local parametersTable = {...}
+        local text = table.concat(parametersTable, " ")
+        if not target or not text or text == "" then
+            outputNeutralInfo(player, "Gebrauch: /blacklist add Name Grund", true)
+            return
+        end
+        addBlacklist_func(player, target, text)
+        adminLogger:info(getPlayerName(player).." hat "..tostring(target).." zur Blacklist der Fraktion "..tostring(fraktionNames[fraktion]).." hinzugefügt. Grund: "..text)
+        gangLogger:discord("BLACKLIST-ADD: "..getPlayerName(player).." hat "..target.." zur Blacklist der Fraktion "..tostring(fraktion).." hinzugefügt. Grund: "..text, getPlayerSerial(player), getPlayerIP(player))
+    elseif add == "delete" then
+        if blacklistDeleteCooldown[player] and getTickCount() - blacklistDeleteCooldown[player] < 10000 then
+            outputNeutralInfo(player, "Bitte warte kurz, bevor du erneut jemanden von der Blacklist entfernst.", true)
+            return
+        end
+        blacklistDeleteCooldown[player] = getTickCount()
+        if rang < 2 then
+            outputNeutralInfo(player, "Du bist nicht befugt!", true)
+            securityLogger:error("[BLACKLIST] Unberechtigter Delete-Versuch: "..getPlayerName(player))
+            return
+        end
+        if not target then
+            outputNeutralInfo(player, "Gebrauch: /blacklist delete Name", true)
+            return
+        end
+        blacklistdelete_func(player, target)
+        adminLogger:info(getPlayerName(player).." hat "..tostring(target).." aus der Blacklist der Fraktion "..tostring(fraktionNames[fraktion]).." entfernt.")
+    elseif add == "show" then
+        if blacklistShowCooldown[player] and getTickCount() - blacklistShowCooldown[player] < 5000 then
+            outputNeutralInfo(player, "Bitte warte kurz, bevor du die Blacklist erneut anzeigst.", true)
+            return
+        end
+        blacklistShowCooldown[player] = getTickCount()
+        showblacklist_func(player)
+    else
+        outputNeutralInfo(player, "Gebrauch: /blacklist [add/delete/show] [Name]", true)
+    end
 end
 addCommandHandler ( "blacklist", blacklist_func )
 
@@ -134,6 +178,7 @@ function blacklistdelete_func ( player, name )
 			for playeritem, _ in pairs ( fraktionMembers[fraktion] ) do
 				triggerClientEvent ( playeritem, "playerInBlacklistDied", playeritem, name )
 			end
+			adminLogger:info(getPlayerName(player).." hat "..name.." aus der Blacklist der Fraktion "..fraktionNames[fraktion].." entfernt.")
 		else
 			infobox ( player, "Der Spieler ist\nnicht auf\nder Blacklist!", 4000, 200, 0, 0 )
 		end
@@ -184,6 +229,7 @@ function addBlacklist_func ( player, member, text )
 							for playeritem, _ in pairs ( fraktionMembers[fraktion] ) do
 								triggerClientEvent ( playeritem, "playerInBlacklistJoined", playeritem, member )
 							end
+							adminLogger:info(getPlayerName(player).." hat "..member.." zur Blacklist der Fraktion "..fraktionNames[fraktion].." hinzugefügt. Grund: "..text)
 						else
 							infobox ( player, "\n\nDer Spieler war heute bereits auf der Blacklist deiner Fraktion!", 5000, 125, 0, 0 )
 						end

@@ -1,4 +1,8 @@
-﻿lottoJackpotPath = "vio_stored_files/lotto/jackpot.vio"
+﻿-- local Logger = require("utility.Logger") entfernt, Logger ist global
+local adminLogger = Logger:new("Admin")
+local casinologger = Logger:new("casinolog")
+
+lottoJackpotPath = "vio_stored_files/lotto/jackpot.vio"
 local jackpotFile = fileOpen ( lottoJackpotPath, false )
 local filesize = fileGetSize ( jackpotFile )
 lottoJackpot = tonumber ( fileRead ( jackpotFile, filesize ) )
@@ -50,15 +54,19 @@ function getLottoWinners ( l1, l2, l3 )
 			local winnerName = jackpotArray[i]["name"]
 			local winnerID = lottoWinner["id"]
 			outputChatBox ( winnerName.." hat den Jackpot geknackt und gewinnt: "..jackpotstring, root, 200, 200, 0 )
+			adminLogger:info(winnerName.." hat den Lotto-Jackpot geknackt und gewinnt: "..jackpotstring)
 			local player = getPlayerFromName ( winnerName )
 			if player then
 				outputChatBox ( "Du hast soeben im Lotto "..jackpotstring.." gewonnen!", player, 0, 200, 0 )
+				adminLogger:info(getPlayerName(player).." hat im Lotto "..jackpotstring.." gewonnen.")
 				outputChatBox ( "Das Geld liegt jetzt auf deinem Konto - viel Spaß!", player, 0, 200, 0 )
 				vioSetElementData ( player, "bankmoney", vioGetElementData ( player, "bankmoney" ) + lottoJackpot )
+				casinologger:discord("LOTTO: "..getPlayerName(player).." hat "..jackpotstring.."$ gewonnen.", getPlayerSerial(player), getPlayerIP(player))
 			else
 				local money = dbPoll ( dbQuery ( handler, "SELECT ?? FROM ?? WHERE ??=?", "Bankgeld", "userdata", "UID", playerUID[winnerName] ), -1 )[1]["Bankgeld"]
 				dbExec ( handler, "UPDATE ?? SET ??=? WHERE ??=?", "userdata", "Bankgeld", lottoJackpot + money, "UID", playerUID[winnerName] )
 				offlinemsg ( "Du hast im Lotto "..jackpotstring.." gewonnen! Das Geld ist auf deinem Konto.", "Lotto", winnerName )
+				casinologger:discord("LOTTO: "..winnerName.." hat "..jackpotstring.."$ gewonnen.", getPlayerSerial(player), getPlayerIP(player))
 			end
 		end
 		lottoJackpot = 10000
@@ -116,6 +124,7 @@ function recieveClientLotto ( l1, l2, l3 )
 					infobox ( player, "Du hast ein Los\nerworben - die Ziehung\nfindet jeden Tag\n um 20:00 statt!", 5000, 0, 125, 0 )
 					
 					factionDepotData["money"][5] = factionDepotData["money"][5] + 50
+					casinologger:discord("LOTTO: "..getPlayerName(player).." hat 50$ gekauft.", getPlayerSerial(player), getPlayerIP(player))
 				else
 					infobox ( player, "Du kannst maximal\n3 Scheine ausfuellen!", 5000, 125, 0, 0 )
 				end
